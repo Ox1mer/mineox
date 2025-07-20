@@ -1,7 +1,6 @@
 #include "ChunkMemoryContainer.h"
 
-std::optional<std::reference_wrapper<Chunk>>
-ChunkMemoryContainer::getChunk(const ChunkPos& pos) const {
+std::optional<std::reference_wrapper<Chunk>> ChunkMemoryContainer::getChunk(const ChunkPos& pos) const {
     std::shared_lock lock(_mutex);
     auto it = _chunks.find(pos);
     if (it == _chunks.end()) {
@@ -58,6 +57,51 @@ std::vector<ChunkPos> ChunkMemoryContainer::getLoadedChunksPosition() const {
     return positions;
 }
 
+void ChunkMemoryContainer::removeUnlistedChunks(
+    const std::vector<ChunkPos>& chunksPos, const std::string& worldName
+) {
+    std::vector<ChunkPos> toRemove;
+
+    {
+        std::shared_lock lock(_mutex);
+        for (const auto& [pos, chunk] : _chunks) {
+            if (std::find(chunksPos.begin(), chunksPos.end(), pos) == chunksPos.end()) {
+                if (chunk->canBeDeleted) {
+                    toRemove.push_back(pos);
+                }
+            }
+        }
+    }
+
+    const size_t batchSize = 9;
+
+    for (size_t i = 0; i < toRemove.size(); i += batchSize) {
+        size_t end = std::min(i + batchSize, toRemove.size());
+        std::vector<ChunkPos> batch(toRemove.begin() + i, toRemove.begin() + end);
+
+        ThreadPool::getInstance().enqueueChunkTask([this, batch, worldName]() {
+            for (const auto& pos : batch) {
+                std::unique_ptr<Chunk> chunkToSave;
+
+                {
+                    std::unique_lock lock(_mutex);
+                    auto found = _chunks.find(pos);
+                    if (found != _chunks.end()) {
+                        found->second->markSavingStarted();
+                        chunkToSave = std::move(found->second);
+                        _chunks.erase(found);
+                    }
+                }
+
+                if (chunkToSave) {
+                    _chunkLoader.saveChunk(pos, *chunkToSave, worldName);
+                }
+            }
+        });
+    }
+}
+
+
 void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunksPos, const std::string& worldName) {
     std::vector<ChunkPos> toLoad;
 
@@ -77,7 +121,7 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
         }
     }
 
-    const size_t batchSize = 5;
+    const size_t batchSize = 9;
 
     for (size_t i = 0; i < toLoad.size(); i += batchSize) {
         std::vector<std::pair<ChunkPos, bool>> batch;
@@ -110,4 +154,5 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
             }
         });
     }
+    removeUnlistedChunks(chunksPos, worldName);
 }

@@ -23,14 +23,40 @@ glm::ivec3 ChunkController::worldToChunk(const glm::ivec3& worldPos) const {
 void ChunkController::setBlock(const BlockPos& pos, Blocks id) {
     auto chunkOpt = getChunk(ChunkPos(worldToChunk(pos.position)));
     if (chunkOpt) {
-        chunkOpt->get().setBlock(pos, id);
+        auto toLocal = [](int globalCoord) {
+            int local = globalCoord % Chunk::CHUNK_SIZE;
+            if (local < 0) local += Chunk::CHUNK_SIZE;
+            return local;
+        };
+
+        glm::ivec3 localPos{
+            toLocal(pos.position.x),
+            toLocal(pos.position.y),
+            toLocal(pos.position.z)
+        };
+
+        chunkOpt->get().setBlock(BlockPos(localPos), id);
     }
 }
 
 std::optional<std::reference_wrapper<Block>> ChunkController::getBlock(const BlockPos& pos) const {
     auto chunkOpt = getChunk(ChunkPos(worldToChunk(pos.position)));
     if (chunkOpt) {
-        return chunkOpt->get().getBlock(pos);
+
+        auto toLocal = [](int globalCoord) {
+            int local = globalCoord % Chunk::CHUNK_SIZE;
+            if (local < 0) local += Chunk::CHUNK_SIZE;
+            return local;
+        };
+
+        glm::ivec3 localPos{
+            toLocal(pos.position.x),
+            toLocal(pos.position.y),
+            toLocal(pos.position.z)
+        };
+
+        // Теперь можно получить блок по локальной позиции
+        return chunkOpt->get().getBlock(BlockPos(localPos));
     }
     return std::nullopt;
 }
@@ -38,21 +64,33 @@ std::optional<std::reference_wrapper<Block>> ChunkController::getBlock(const Blo
 void ChunkController::breakBlock(const BlockPos& pos) {
     auto chunkOpt = getChunk(ChunkPos(worldToChunk(pos.position)));
     if (chunkOpt) {
-        chunkOpt->get().breakBlock(pos);
+        auto toLocal = [](int globalCoord) {
+            int local = globalCoord % Chunk::CHUNK_SIZE;
+            if (local < 0) local += Chunk::CHUNK_SIZE;
+            return local;
+        };
+
+        glm::ivec3 localPos{
+            toLocal(pos.position.x),
+            toLocal(pos.position.y),
+            toLocal(pos.position.z)
+        };
+
+        chunkOpt->get().breakBlock(BlockPos(localPos));
     }
 }
 
-void ChunkController::renderAllChunks(Shader shader) {
+void ChunkController::renderAllChunks(Shader& shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
     auto chunkPositions = _chunkMemoryContainer->getLoadedChunksPosition();
     for (const auto& pos : chunkPositions) {
-        renderChunk(pos, shader);
+        renderChunk(pos, shader, sunDirection, sunColor);
     }
 }
 
-void ChunkController::renderChunk(const ChunkPos& pos, Shader shader) {
+void ChunkController::renderChunk(const ChunkPos& pos, Shader& shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
     auto chunkOpt = getChunk(pos);
     if (chunkOpt) {
-        chunkOpt->get().render(shader);
+        chunkOpt->get().render(shader, sunDirection, sunColor);
     }
 }
 

@@ -12,7 +12,6 @@
 class ChunkDataAccess {
 public:
     bool saveChunkToDisk(const ChunkPos& pos, const Chunk& chunk, const std::string& worldName) {
-        ScopedTimer timer("saveChunkToFile");
 
         auto& fileHandler = FileHandler::getInstance();
         fs::path chunkFilePath = PathProvider::getInstance().getChunkFilePath(worldName, pos);

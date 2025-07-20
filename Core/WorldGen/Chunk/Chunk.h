@@ -91,8 +91,8 @@ public:
         return &blocksOpaqueData;
     }
 
-    void render(Shader shader) {
-        _mesh.render(shader);
+    void render(Shader shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
+        _mesh.render(shader, sunDirection, sunColor);
     }
 
     void markChunkDirty() {

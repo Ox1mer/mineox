@@ -102,9 +102,11 @@ struct ChunkMesh
         }
     }
 
-    void render(Shader shader) {
+    void render(Shader shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
         if (needUpdate) update();
             shader.use();
+            shader.setVec3("lightDir", sunDirection);
+            shader.setVec3("lightColor", sunColor);
 
             if (!texturesBound) {
                 auto& texCtrl = TextureController::getInstance();

@@ -37,8 +37,8 @@ public:
     void breakBlock(const BlockPos& pos);
 
     // === Update & Render ===
-    void renderAllChunks(Shader shader);
-    void renderChunk(const ChunkPos& pos, Shader shader);
+    void renderAllChunks(Shader& shader, const glm::vec3& sunDirection, const glm::vec3& sunColor);
+    void renderChunk(const ChunkPos& pos, Shader& shader, const glm::vec3& sunDirection, const glm::vec3& sunColor);
     void markChunkDirty(const ChunkPos& pos);
     void updateChunk(const ChunkPos& pos, float deltaTime);
     void update(const glm::ivec3& playerPos, int viewDistance);

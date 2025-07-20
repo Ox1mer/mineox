@@ -59,15 +59,18 @@ public:
 private:
     ThreadPool() : stopping(false) {
         unsigned int cpu = std::thread::hardware_concurrency();
-        if (cpu == 0) cpu = 2;
-        size_t total = 10;
-        size_t generalCount = total - 1;  // 1 thread reserved for chunk tasks
+        size_t totalThreads = std::max<size_t>(5, cpu);
+        size_t chunkWorkersCount = (totalThreads / 2) - 1 ;
+        size_t generalWorkersCount = totalThreads - chunkWorkersCount;
 
-        workers.emplace_back([this] { chunkWorker(); });
+        for (size_t i = 0; i < chunkWorkersCount; ++i) {
+            workers.emplace_back([this] { chunkWorker(); });
+        }
 
-        for (size_t i = 0; i < generalCount; ++i) {
+        for (size_t i = 0; i < generalWorkersCount; ++i) {
             workers.emplace_back([this] { generalWorker(); });
         }
+        Logger::getInstance().Log("total threads: " + std::to_string(totalThreads) + "\nchunk worker threads: " + std::to_string(chunkWorkersCount));
     }
 
     ThreadPool(const ThreadPool&) = delete;
@@ -111,7 +114,7 @@ private:
     }
 
     void chunkWorker() {
-        const size_t maxTasksPerFrame = 2; // limit tasks for one cycle
+        const size_t maxTasksPerFrame = 5; // limit tasks for one cycle
 
         while (true) {
             size_t tasksDone = 0;

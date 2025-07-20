@@ -30,6 +30,7 @@ public:
     // === Chunk Management ===
     void loadChunk(const ChunkPos& pos, std::unique_ptr<Chunk> chunk);
     void loadVectorOfChunks(const std::vector<ChunkPos>& chunksPos, const std::string& worldName);
+    void removeUnlistedChunks(const std::vector<ChunkPos>& chunksPos, const std::string& worldName);
 
     void unloadChunk(const ChunkPos& pos);
     void removeChunk(const ChunkPos& pos);

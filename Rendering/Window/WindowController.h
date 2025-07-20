@@ -4,10 +4,25 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "Camera.h"
+#include "ServiceLocator.h"
+#include "Blocks.h"
+#include "RayCastHit.h"
+#include "BlockPos.h"
+#include <optional>
 
 class WindowController {
+private:
+    inline static float leftMouseCooldown = 0.0f;
+    inline static float rightMouseCooldown = 0.0f;
+    const float cooldownTime = 0.2f;
+
+    bool leftMousePressedLastFrame = false;
+    bool rightMousePressedLastFrame = false;
+
 public:
+    bool shouldToggleFullscreen = false;
     void init() {
+        leftMouseCooldown, rightMouseCooldown = 0.0f;
         if (!glfwInit()) {
             Logger::getInstance().Log("Failed to initialize GLFW", LogLevel::Error, LogOutput::Both, LogWriteMode::Append);
             return;
@@ -31,6 +46,7 @@ public:
         fullscreen = !fullscreen;
         destroyWindow();
         createWindow();
+        shouldToggleFullscreen = false;
         Logger::getInstance().Log(fullscreen ? "Switched to fullscreen mode" : "Switched to windowed mode", LogLevel::Info, LogOutput::Both, LogWriteMode::Append);
     };
 
@@ -107,11 +123,16 @@ public:
     }
 
 
-    void processCameraKeyboard(Camera* camera, float deltaTime) {
+    void processCameraKeyboard(Camera* camera, float deltaTime, std::optional<RaycastHit>& raycastHit, Blocks& choosedBlock) {
         if (!window) {
             Logger::getInstance().Log("Cannot process camera keyboard: Window not initialized", LogLevel::Error, LogOutput::Both, LogWriteMode::Append);
             return;
         }
+
+        if (leftMouseCooldown > 0.0f)
+            leftMouseCooldown -= deltaTime;
+        if (rightMouseCooldown > 0.0f)
+            rightMouseCooldown -= deltaTime;
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             camera->ProcessKeyboard(FORWARD, deltaTime);
@@ -125,6 +146,34 @@ public:
             camera->ProcessKeyboard(UP, deltaTime);
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
             camera->ProcessKeyboard(DOWN, deltaTime);
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            glfwSetWindowShouldClose(window, true);
+
+        bool leftPressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
+        if (leftPressed && raycastHit) {
+            if (!leftMousePressedLastFrame) {
+                ServiceLocator::GetWorld()->getChunkController().breakBlock(BlockPos(raycastHit.value().blockPos));
+                leftMouseCooldown = cooldownTime;
+            } else if (leftMouseCooldown <= 0.0f) {
+                ServiceLocator::GetWorld()->getChunkController().breakBlock(BlockPos(raycastHit.value().blockPos));
+                leftMouseCooldown = cooldownTime;
+            }
+        }
+        leftMousePressedLastFrame = leftPressed;
+
+        bool rightPressed = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+        if (rightPressed && raycastHit) {
+            if (!rightMousePressedLastFrame) {
+                BlockPos newBlockPos(raycastHit.value().blockPos + raycastHit.value().faceNormal);
+                ServiceLocator::GetWorld()->getChunkController().setBlock(newBlockPos, choosedBlock);
+                rightMouseCooldown = cooldownTime;
+            } else if (rightMouseCooldown <= 0.0f) {
+                BlockPos newBlockPos(raycastHit.value().blockPos + raycastHit.value().faceNormal);
+                ServiceLocator::GetWorld()->getChunkController().setBlock(newBlockPos, choosedBlock);
+                rightMouseCooldown = cooldownTime;
+            }
+        }
+        rightMousePressedLastFrame = rightPressed;
     }
 
 

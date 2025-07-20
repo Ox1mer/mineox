@@ -26,7 +26,9 @@ public:
         }
     }
 
-    void saveChunk();
+    void saveChunk(const ChunkPos& chunkPos, const Chunk& chunk, const std::string& worldName) {
+        _chunkDataAccess.saveChunkToDisk(chunkPos, chunk, worldName);
+    }
     
     std::unique_ptr<Chunk> generateChunk(ChunkPos chunkPos) {
         auto chunk = std::make_unique<Chunk>(chunkPos);
