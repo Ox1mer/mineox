@@ -43,7 +43,22 @@ C++20, OpenGL, GLFW, GLAD, stb_image
 
 ## 🔒 License
 
-All rights reserved. See [LICENSE](./LICENSE) for details.
+This project is licensed under a proprietary license.
+
+**You may:**
+- Download and view the source code
+- Compile and run the project for personal use
+- Modify the source code for personal, non-commercial experimentation
+
+**You may not:**
+- Publish or distribute the source code or your modifications
+- Use the code or modifications in other projects or products
+- Use the project for commercial purposes without permission
+
+**Want to contribute?**
+If you want to contribute your changes, please submit them for review. If approved, your contribution may be merged and you may be credited as a contributor.
+
+See [LICENSE](./LICENSE) for details.
 
 ---
 
