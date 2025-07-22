@@ -1,7 +1,8 @@
-# 🛠️ MineOX — Infinite World Inspired by Minecraft and Terraria
+# 🛠️ MineOX — My Infinite Sandbox Game Inspired by Minecraft and Terraria
 
-MineOX is not just a chunk controller — it’s the foundation of my future game featuring an infinite world.  
-Inspired by Minecraft and Terraria, MineOX generates chunks without limits up or down, creating a world that expands infinitely in all directions.
+**MineOX** is my personal dream project: a true sandbox game with a limitless world.  
+Taking inspiration from Minecraft and Terraria, I’m building a place where players can explore, build, and survive in an endless voxel universe that expands up, down, and in every direction.  
+MineOX is more than code — it’s my own evolving game world.
 
 ---
 
@@ -17,27 +18,38 @@ Inspired by Minecraft and Terraria, MineOX generates chunks without limits up or
 
 ## 📦 Initial Setup and Launch
 
-On the first run, MineOX will automatically create a configuration folder in your system: %APPDATA%.mineox\data\textures\blocks
+To run MineOX, follow these simple steps:
 
-(On Windows, `%APPDATA%` typically points to `C:\Users\<YourUserName>\AppData\Roaming`)
+-  Download this repository from GitHub.
+-  Build the project using any C++ compiler you prefer.
+-  Make sure the compiled .exe file is in the same directory as the data folder and all required libraries.
 
-If the `textures/blocks` folder does not exist, it will be created automatically.
+## 📂 Configuration and Data
 
-Block textures should be placed inside this folder as `.png` files.  
-**Important:** Each texture file name must exactly match the block’s `stringRepresentation`.
+On the first launch, MineOX will automatically create a hidden folder .mineox inside %APPDATA%:
 
----
+(On Windows, %APPDATA% is usually C:\Users\<YourUserName>\AppData\Roaming.)
 
-## 🚀 How to Build and Run
+This folder will store all necessary files for the game to run properly — you don’t need to set up anything manually.
 
-Currently, the project is built using VS Code tasks. CMake support will be added later.  
+## 🎨 Customization
 
-Steps to build:  
-- Clone the repository  
-- Build with your compiler (e.g. GCC) using the VS Code build tasks  
+You can customize textures, fonts, and other resources in the data folder before launching.
+
+Block textures must be .png files located in data\textures\blocks.
+
+Each texture filename must exactly match the block’s stringRepresentation.
+
+## ⚙️ OS Support
+
+Note: MineOX currently works only on Windows.
+Cross-platform support (Linux and macOS) is planned for the future.
 
 The project uses:  
 C++20, OpenGL, GLFW, GLAD, stb_image
+
+✅ That’s it! Just run your .exe and MineOX will handle the rest.
+No extra setup, no hassle — infinite world, right out of the box.
 
 ---
 
