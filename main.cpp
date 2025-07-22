@@ -1,103 +1,55 @@
-#include <iostream>
 #include <string>
+
 #include "Logger.h"
 #include "PathProvider.h"
 #include "ThreadPool.h"
 #include "EventBus.h"
+#include "ServiceLocator.h"
+#include "GlResourceDeleter.h"
+
 #include "WindowController.h"
+#include "Camera.h"
+#include "Shader.h"
+
 #include "StateController.h"
 #include "MainMenuState.h"
 #include "GameState.h"
-#include "BlocksIncluder.h"
 #include "World.h"
-#include "Shader.h"
-#include "Camera.h"
+#include "BlocksIncluder.h"
+#include "RayCastHit.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-#include "GlResourceDeleter.h"
-#include "TextureController.h"
-#include "RayCastHit.h"
-#include "ServiceLocator.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
-Camera camera;
+#include "FontsLoader.h"
+#include "TextureController.h"
+
+#include "WireFrameCube.h"
+#include "SkySettings.h"
+#include "f3InfoScreen.h"
+
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-glm::vec3 sunDirection = glm::normalize(glm::vec3(-0.5f, -1.0f, -0.3f));
-glm::vec3 sunColor = glm::vec3(1.0f, 1.0f, 0.9f);
-float dayLength = 60.0f * 20.0f;
-glm::vec3 daySkyColor = glm::vec3(0.53f, 0.81f, 0.92f);
-glm::vec3 nightSkyColor = glm::vec3(0.0f, 0.0f, 0.05f);
 float timeOfDay = 0;
+glm::vec3 sunDirection = glm::normalize(glm::vec3(-0.5f, -1.0f, -0.3f));
 std::optional<RaycastHit> raycastHit;
-Blocks choosedBlock = Blocks::Dirt;
 
-float cubeVertices[] = {
-    -0.5f, -0.5f, -0.5f, // 0
-     0.5f, -0.5f, -0.5f, // 1
-     0.5f,  0.5f, -0.5f, // 2
-    -0.5f,  0.5f, -0.5f, // 3
-    -0.5f, -0.5f,  0.5f, // 4
-     0.5f, -0.5f,  0.5f, // 5
-     0.5f,  0.5f,  0.5f, // 6
-    -0.5f,  0.5f,  0.5f  // 7
-};
-
-unsigned int cubeIndices[] = {
-    // Задняя грань
-    0, 1,
-    1, 2,
-    2, 3,
-    3, 0,
-
-    // Передняя грань
-    4, 5,
-    5, 6,
-    6, 7,
-    7, 4,
-
-    // Боковые рёбра
-    0, 4,
-    1, 5,
-    2, 6,
-    3, 7
-};
+// Later create an entity class - and then Player will be an entity and will have a camera and choosed block controls
+Camera camera;
+Blocks choosedBlock = Blocks::Stone;
 
 void init() {
     Logger::getInstance().Log("Application started", LogLevel::Info, LogOutput::Both, LogWriteMode::Overwrite);
     ThreadPool::getInstance(); // Initialize ThreadPool
     EventBus::getInstance(); // Initialize EventBus
+    FileHandler::getInstance(); // Initialize FileHandler
 }
 
-void InitializeTextures(GLuint shaderProgramID) {
-    auto textureIDs = TextureController::getInstance().getAllTextureIDs();
-
-    // Активируем и привязываем все текстуры
-    for (GLuint i = 0; i < textureIDs.size(); ++i) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, textureIDs[i]);
-    }
-
-    // Передаем массив индексов сэмплеров в шейдер
-    GLint location = glGetUniformLocation(shaderProgramID, "textures");
-    if (location == -1) {
-        std::cerr << "Warning: uniform 'textures' not found in shader\n";
-        return;
-    }
-
-    std::vector<GLint> samplers(textureIDs.size());
-    for (int i = 0; i < samplers.size(); ++i)
-        samplers[i] = i; // textures[0] => GL_TEXTURE0, textures[1] => GL_TEXTURE1, ...
-
-    glUseProgram(shaderProgramID);
-    glUniform1iv(location, samplers.size(), samplers.data());
-    glUseProgram(0);
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-}
-
-glm::vec3 interpolateColor(const glm::vec3& dayColor, const glm::vec3& nightColor, float time) {
-    float t = (time <= 0.5f) ? (time * 2.0f) : ((1.0f - time) * 2.0f);
-    return glm::mix(dayColor, dayColor, t);
-}
+glm::vec3 interpolateColor(const glm::vec3& dayColor, const glm::vec3& nightColor, float time);
 
 int main() {
     init();
@@ -108,6 +60,8 @@ int main() {
     windowController.bindCameraControls(&camera);
     windowController.setWindowTitle("MineOx 0.2");
     GLFWwindow* window = windowController.getWindow();
+    FontsLoader fontsLoader;
+    f3InfoScreen f3InfoScreen;
 
     if (!window) {
         Logger::getInstance().Log("Failed to create GLFW window", LogLevel::Critical, LogOutput::Both);
@@ -118,23 +72,40 @@ int main() {
     stateController.changeState(std::make_unique<MainMenuState>());
 
     camera = Camera();
-
-    World world(12345, "New world");
+    World world(12345, "New world"); // Later, get seed and world name from user input
     ServiceLocator::ProvideWorld(&world);
+    
     if (!FileHandler::getInstance().fileExists(PathProvider::getInstance().getWorldChunksPath(world.getWorldName()))) {
         FileHandler::getInstance().createDirectory(PathProvider::getInstance().getWorldChunksPath(world.getWorldName()));
     }
+    if (!FileHandler::getInstance().fileExists(PathProvider::getInstance().getDataPath())) {
+        FileHandler::getInstance().createDirectory(PathProvider::getInstance().getDataPath());
+    }
+    if (!FileHandler::getInstance().fileExists(PathProvider::getInstance().getTextureFolderPath())) {
+        FileHandler::getInstance().createDirectory(PathProvider::getInstance().getTextureFolderPath());
+    }
+    if (!FileHandler::getInstance().fileExists(PathProvider::getInstance().getBlocksTextureFolderPath())) {
+        FileHandler::getInstance().createDirectory(PathProvider::getInstance().getBlocksTextureFolderPath());
+    }
     //world.init(PlayerPos(glm::ivec3(camera.Position.x, camera.Position.y, camera.Position.z)));
 
-    Shader shader("C:\\Users\\Oximer\\Documents\\VSCodeProjects\\MineOx_0.2\\Shaders\\vertexShader.vs",
-         "C:\\Users\\Oximer\\Documents\\VSCodeProjects\\MineOx_0.2\\Shaders\\fragmentShader.fs");
-    
-    Shader wireFrameCubeShader("C:\\Users\\Oximer\\Documents\\VSCodeProjects\\MineOx_0.2\\Shaders\\wireFrameCubeVertexShader.vs",
-         "C:\\Users\\Oximer\\Documents\\VSCodeProjects\\MineOx_0.2\\Shaders\\wireFrameCubeFragmentShader.fs");
+    std::string mainShader1 = PathProvider::getInstance().getMainShadersPath()[0].string();
+    std::string mainShader2 = PathProvider::getInstance().getMainShadersPath()[1].string();
+    std::string wireFrameCubeShaderPath1 = PathProvider::getInstance().getWireFrameCubeShadersPath()[0].string();
+    std::string wireFrameCubeShaderPath2 = PathProvider::getInstance().getWireFrameCubeShadersPath()[1].string();
+    std::string fontsShaderPath1 = PathProvider::getInstance().getFontShadersPath()[0].string();
+    std::string fontsShaderPath2 = PathProvider::getInstance().getFontShadersPath()[1].string();
+
+    Shader shader(mainShader1.c_str(), mainShader2.c_str());
+    Shader wireFrameCubeShader(wireFrameCubeShaderPath1.c_str(), wireFrameCubeShaderPath2.c_str());
+    Shader fontsShader(fontsShaderPath1.c_str(), fontsShaderPath2.c_str());
     
     TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath());
-    InitializeTextures(shader.ID);
+    TextureController::getInstance().initializeTextures(shader.ID);
     
+    fontsLoader.loadFont((PathProvider::getInstance().getFontsPath() / "arial.ttf").string());
+    fontsLoader.loadCharacters(32);
+
     unsigned int VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -143,17 +114,20 @@ int main() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(WireFrameCube::vertices), WireFrameCube::vertices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(WireFrameCube::indices), WireFrameCube::indices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
     glBindVertexArray(0);
-
+    
+    //glEnable(GL_CULL_FACE);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  
     glDepthFunc(GL_LESS);
     glEnable(GL_TEXTURE_2D);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -168,6 +142,9 @@ int main() {
 
     glm::mat4 model = glm::mat4(1.0f);
     timeOfDay = 0.25f;
+
+    glm::mat4 fontProjection = glm::ortho(0.0f, windowController.getWidth(), 0.0f,  windowController.getHeight());
+
     while (!glfwWindowShouldClose(window)) {
         if(windowController.shouldToggleFullscreen) {
             windowController.toggleFullscreen();
@@ -176,7 +153,7 @@ int main() {
             deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
             
-            timeOfDay += deltaTime / dayLength;
+            timeOfDay += deltaTime / SkySettings::DAY_LENGTH;
             if (timeOfDay > 1.0f)
                 timeOfDay -= 1.0f;
             float sunAngle = timeOfDay * 2.0f * glm::pi<float>();
@@ -186,9 +163,7 @@ int main() {
             glm::vec3 sunDirection = glm::normalize(-sunPosition);
             glm::vec3 sunColor = glm::vec3(1.0f, 0.95f, 0.8f);
 
-            glfwPollEvents();
-
-            glm::vec3 currentSkyColor = interpolateColor(daySkyColor, nightSkyColor, timeOfDay);
+            glm::vec3 currentSkyColor = interpolateColor(SkySettings::DAY_COLOR, SkySettings::NIGHT_COLOR, timeOfDay);
 
             glClearColor(currentSkyColor.r, currentSkyColor.g, currentSkyColor.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -196,6 +171,24 @@ int main() {
             //stateController.handleInput(window);
             //stateController.update(deltaTime);
             raycastHit = world.raycast(camera.Position, camera.Front, 5.0f);
+
+            f3InfoScreen.fps = static_cast<int>(1.0f / deltaTime);
+            f3InfoScreen.playerPos = glm::ivec3(camera.Position);
+            f3InfoScreen.chunkPos = world.getChunkController().toChunkPos(glm::ivec3(camera.Position)).position;
+            f3InfoScreen.blockPos = glm::ivec3(glm::ivec3(camera.Position));
+            BlockPos blockPos = raycastHit.has_value() ? BlockPos(raycastHit->blockPos) : BlockPos(glm::ivec3(0));
+            auto block = world.getChunkController().getBlock(blockPos);
+            if(block) {
+                f3InfoScreen.facedBlockInfo = raycastHit.has_value() 
+                ? "Block: " + block.value().get().getStringRepresentation() + 
+                  ", Face Normal: " + std::to_string(raycastHit->faceNormal.x) + 
+                  ", " + std::to_string(raycastHit->faceNormal.y) + 
+                  ", " + std::to_string(raycastHit->faceNormal.z)
+                : "No block hit";
+            } else {
+                f3InfoScreen.facedBlockInfo = "No block hit";
+            }
+            
             windowController.processCameraKeyboard(&camera, deltaTime, raycastHit, choosedBlock);
             world.update(PlayerPos(glm::ivec3(camera.Position.x, camera.Position.y, camera.Position.z)));
 
@@ -217,6 +210,7 @@ int main() {
                 wireFrameCubeShader.setMat4("model", wfCubemodel);
                 wireFrameCubeShader.setMat4("view", camera.GetViewMatrix());
                 wireFrameCubeShader.setMat4("projection", projection);
+                wireFrameCubeShader.setVec3("color", glm::vec3(0.0f, 1.0f, 0.0f));
 
                 glLineWidth(2.0f);
 
@@ -226,9 +220,24 @@ int main() {
             }
 
             //stateController.render();
+            float wHeight = static_cast<float>(windowController.getHeight());
+            glDisable(GL_DEPTH_TEST);
+            fontsLoader.RenderText(fontsShader, "FPS: " + f3InfoScreen.toString(f3InfoScreen.fps), 10.0f, wHeight - 30.0f, 1.0f, glm::vec3(0.0, 0.0f, 0.0f), fontProjection);
+            fontsLoader.RenderText(fontsShader, f3InfoScreen.toString(f3InfoScreen.blockPos), 10.0f, wHeight - 60.0f, 1.0f, glm::vec3(0.0, 0.0f, 0.0f), fontProjection);
+            fontsLoader.RenderText(fontsShader, f3InfoScreen.toString(f3InfoScreen.chunkPos), 10.0f, wHeight - 90.0f, 1.0f, glm::vec3(0.0, 0.0f, 0.0f), fontProjection);
+            fontsLoader.RenderText(fontsShader, f3InfoScreen.toString(f3InfoScreen.playerPos), 10.0f, wHeight - 120.0f, 1.0f, glm::vec3(0.0, 0.0f, 0.0f), fontProjection);
+            fontsLoader.RenderText(fontsShader, f3InfoScreen.facedBlockInfo, 10.0f, wHeight - 150.0f, 1.0f, glm::vec3(0.0, 0.0f, 0.0f), fontProjection);
+            glEnable(GL_DEPTH_TEST);
+
+            if(windowController.shouldTakeScreenshot) {
+                windowController.doTheScreenshotAndSave();
+                Logger::getInstance().Log("Screenshot taken", LogLevel::Info, LogOutput::Both, LogWriteMode::Append);
+                windowController.shouldTakeScreenshot = false;
+            }
 
             GLResourceDeleter::getInstance().processDeletes();
             glfwSwapBuffers(window);
+            glfwPollEvents();
         }
     }
 
@@ -236,4 +245,9 @@ int main() {
     Logger::getInstance().Log("Application shutdown", LogLevel::Warning, LogOutput::Both, LogWriteMode::Append);
     windowController.shutdown();
     return 0;
+}
+
+glm::vec3 interpolateColor(const glm::vec3& dayColor, const glm::vec3& nightColor, float time) {
+    float t = (time <= 0.5f) ? (time * 2.0f) : ((1.0f - time) * 2.0f);
+    return glm::mix(dayColor, dayColor, t);
 }

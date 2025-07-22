@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <stdexcept>
+#include <array>
 #include "ChunkPos.h"
 
 #include "FileHandler.h"
@@ -54,6 +55,40 @@ public:
         return getWorldChunksPath(worldName) / chunkPos.toString();
     }
 
+    fs::path getFontsPath() const {
+        return dataPath / "fonts";
+    }
+
+    fs::path getShadersPath() const {
+        return dataPath / "shaders";
+    }
+
+    fs::path getScreenshotsPath() const {
+        return screenshotsFolderPath;
+    }
+
+    // -- Shaders paths
+    std::array<fs::path, 2> getWireFrameCubeShadersPath() const {
+        return {
+            dataPath / "shaders" / "wireFrameCubeVertexShader.vs",
+            dataPath / "shaders" / "wireFrameCubeFragmentShader.fs"
+        };
+    }
+
+    std::array<fs::path, 2> getFontShadersPath() const {
+        return {
+            dataPath / "shaders" / "fontVertShader.vs",
+            dataPath / "shaders" / "fontFragmentShader.fs"
+        };
+    }
+
+    std::array<fs::path, 2> getMainShadersPath() const {
+        return {
+            dataPath / "shaders" / "vertexShader.vs",
+            dataPath / "shaders" / "fragmentShader.fs"
+        };
+    }
+
 private:
     PathProvider() {
         const char* appdata = std::getenv("APPDATA");
@@ -64,13 +99,22 @@ private:
         dataPath = rootPath / "data";
         worldsPath = rootPath / "saves";
         textureFolderPath = dataPath / "textures";
+        screenshotsFolderPath = rootPath / "screenshots";
 
         FileHandler::getInstance().createDirectory(configPath);
+        FileHandler::getInstance().createDirectory(screenshotsFolderPath);
         FileHandler::getInstance().createDirectory(logsPath);
         FileHandler::getInstance().createDirectory(dataPath);
         FileHandler::getInstance().createDirectory(worldsPath);
         FileHandler::getInstance().createDirectory(textureFolderPath);
+        FileHandler::getInstance().createDirectory(getFontsPath());
+        FileHandler::getInstance().createDirectory(getShadersPath());
+        FileHandler::getInstance().createDirectory(getBlocksTextureFolderPath());
+        FileHandler::getInstance().ensureFontPresent(getFontsPath() / "arial.ttf");
+        FileHandler::getInstance().ensureShaderPresent(getShadersPath());
+        FileHandler::getInstance().ensureTexturesPresent(getTextureFolderPath());
     }
+
     ~PathProvider() = default;
 
     fs::path rootPath;
@@ -79,6 +123,7 @@ private:
     fs::path dataPath;
     fs::path worldsPath;
     fs::path textureFolderPath;
+    fs::path screenshotsFolderPath;
 
     PathProvider(const PathProvider&) = delete;
     PathProvider& operator=(const PathProvider&) = delete;

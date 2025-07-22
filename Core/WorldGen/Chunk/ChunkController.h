@@ -45,6 +45,9 @@ public:
 
     // === Utility ===
     ChunkPos toChunkPos(const glm::ivec3& pos) const;
+    const std::unique_ptr<ChunkDataAccess>& getChunkDataAccess() const {
+        return _chunkDataAccess;
+    }
 
 private:
     glm::ivec3 worldToChunk(const glm::ivec3& worldPos) const;

@@ -1,4 +1,5 @@
 #include "ChunkMemoryContainer.h"
+#include "ThreadPoolPriorityTask.h"
 
 std::optional<std::reference_wrapper<Chunk>> ChunkMemoryContainer::getChunk(const ChunkPos& pos) const {
     std::shared_lock lock(_mutex);
@@ -73,13 +74,13 @@ void ChunkMemoryContainer::removeUnlistedChunks(
         }
     }
 
-    const size_t batchSize = 9;
+    const size_t batchSize = 3;
 
     for (size_t i = 0; i < toRemove.size(); i += batchSize) {
         size_t end = std::min(i + batchSize, toRemove.size());
         std::vector<ChunkPos> batch(toRemove.begin() + i, toRemove.begin() + end);
 
-        ThreadPool::getInstance().enqueueChunkTask([this, batch, worldName]() {
+        ThreadPool::getInstance().enqueueChunkTask(Priority::Low, [this, batch, worldName]() {
             for (const auto& pos : batch) {
                 std::unique_ptr<Chunk> chunkToSave;
 
@@ -121,7 +122,7 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
         }
     }
 
-    const size_t batchSize = 9;
+    const size_t batchSize = 3;
 
     for (size_t i = 0; i < toLoad.size(); i += batchSize) {
         std::vector<std::pair<ChunkPos, bool>> batch;
@@ -133,7 +134,7 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
             batch.emplace_back(chunkPos, exists);
         }
 
-        ThreadPool::getInstance().enqueueChunkTask([this, batch = std::move(batch), worldName]() mutable {
+        ThreadPool::getInstance().enqueueChunkTask(Priority::High, [this, batch = std::move(batch), worldName]() mutable {
             for (auto& [chunkPos, exists] : batch) {
                 std::unique_ptr<Chunk> chunk;
 

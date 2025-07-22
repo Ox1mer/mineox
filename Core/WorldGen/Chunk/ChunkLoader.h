@@ -9,6 +9,7 @@
 #include "memory"
 #include "ChunkDataAccess.h"
 #include "Blocks.h"
+#include "ScopedTimer.h"
 
 class ChunkLoader {
 public:

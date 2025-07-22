@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vector>
 #include <queue>
 #include <thread>
@@ -10,6 +11,8 @@
 #include <atomic>
 #include <stdexcept>
 #include <algorithm>
+
+#include "PriorityTask.h"
 
 class ThreadPool {
 public:
@@ -38,11 +41,13 @@ public:
     }
 
     template<typename F, typename... Args>
-    auto enqueueChunkTask(F&& f, Args&&... args)
+    auto enqueueChunkTask(Priority priority, F&& f, Args&&... args)
         -> std::future<typename std::invoke_result_t<F, Args...>>
     {
         using ReturnType = typename std::invoke_result_t<F, Args...>;
-        auto task = std::make_shared<std::packaged_task<ReturnType()>>(std::bind(std::forward<F>(f), std::forward<Args>(args)...));
+        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
+            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
+        );
         std::future<ReturnType> result = task->get_future();
 
         {
@@ -50,7 +55,20 @@ public:
             if (stopping) {
                 throw std::runtime_error("enqueueChunkTask on stopped ThreadPool");
             }
-            chunkTasks.emplace([task]() { (*task)(); });
+
+            chunkTasks.emplace_back(PriorityTask{ [task]() { (*task)(); }, priority });
+
+            if (chunkTasks.size() > maxChunkTasks) {
+                // Сортируем от большего к меньшему приоритету
+                std::sort(chunkTasks.begin(), chunkTasks.end(),
+                    [](const PriorityTask& a, const PriorityTask& b) {
+                        return static_cast<int>(a.priority) > static_cast<int>(b.priority);
+                    });
+                // Удаляем лишние с конца (минимальный приоритет)
+                while (chunkTasks.size() > maxChunkTasks) {
+                    chunkTasks.pop_back();
+                }
+            }
         }
         chunkCondition.notify_one();
         return result;
@@ -60,7 +78,7 @@ private:
     ThreadPool() : stopping(false) {
         unsigned int cpu = std::thread::hardware_concurrency();
         size_t totalThreads = std::max<size_t>(5, cpu);
-        size_t chunkWorkersCount = (totalThreads / 2) - 1 ;
+        size_t chunkWorkersCount = (totalThreads / 2) - 1;
         size_t generalWorkersCount = totalThreads - chunkWorkersCount;
 
         for (size_t i = 0; i < chunkWorkersCount; ++i) {
@@ -70,7 +88,9 @@ private:
         for (size_t i = 0; i < generalWorkersCount; ++i) {
             workers.emplace_back([this] { generalWorker(); });
         }
-        Logger::getInstance().Log("total threads: " + std::to_string(totalThreads) + "\nchunk worker threads: " + std::to_string(chunkWorkersCount));
+
+        Logger::getInstance().Log("total threads: " + std::to_string(totalThreads) +
+                                  "\nchunk worker threads: " + std::to_string(chunkWorkersCount));
     }
 
     ThreadPool(const ThreadPool&) = delete;
@@ -98,7 +118,6 @@ private:
         }
     }
 
-    // main worker for general tasks
     void generalWorker() {
         while (true) {
             std::function<void()> task;
@@ -114,20 +133,26 @@ private:
     }
 
     void chunkWorker() {
-        const size_t maxTasksPerFrame = 5; // limit tasks for one cycle
+        const size_t maxTasksPerFrame = 3;
 
         while (true) {
             size_t tasksDone = 0;
 
             while (tasksDone < maxTasksPerFrame) {
-                std::function<void()> task;
+                PriorityTask ptask;
                 {
                     std::unique_lock lock(chunkMutex);
                     if (chunkTasks.empty()) break;
-                    task = std::move(chunkTasks.front());
-                    chunkTasks.pop();
+
+                    std::sort(chunkTasks.begin(), chunkTasks.end(),
+                        [](const PriorityTask& a, const PriorityTask& b) {
+                            return static_cast<int>(a.priority) > static_cast<int>(b.priority);
+                        });
+
+                    ptask = chunkTasks.front();
+                    chunkTasks.erase(chunkTasks.begin());
                 }
-                task();
+                ptask.task();
                 ++tasksDone;
             }
             {
@@ -141,11 +166,12 @@ private:
         }
     }
 
-
     std::vector<std::thread> workers;
 
     std::queue<std::function<void()>> generalTasks;
-    std::queue<std::function<void()>> chunkTasks;
+    std::vector<PriorityTask> chunkTasks;
+
+    const size_t maxChunkTasks = 90;
 
     std::mutex generalMutex;
     std::condition_variable generalCondition;

@@ -41,6 +41,29 @@ public:
         }
     }
 
+    void initializeTextures(GLuint shaderProgramID) {
+        auto textureIDs = TextureController::getInstance().getAllTextureIDs();
+
+        for (GLuint i = 0; i < textureIDs.size(); ++i) {
+            glActiveTexture(GL_TEXTURE0 + i);
+            glBindTexture(GL_TEXTURE_2D, textureIDs[i]);
+        }
+
+        GLint location = glGetUniformLocation(shaderProgramID, "textures");
+        if (location == -1) {
+            Logger::getInstance().Log("Warning: uniform 'textures' not found in shader", LogLevel::Warning, LogOutput::Both);
+            return;
+        }
+
+        std::vector<GLint> samplers(textureIDs.size());
+        for (int i = 0; i < samplers.size(); ++i)
+            samplers[i] = i; // textures[0] => GL_TEXTURE0, textures[1] => GL_TEXTURE1, ...
+
+        glUseProgram(shaderProgramID);
+        glUniform1iv(location, samplers.size(), samplers.data());
+        glUseProgram(0);
+    }
+
     // get texture id. returns 0 if no texture
     GLuint getTextureID(const std::string& blockName) const {
         auto it = textures.find(blockName);

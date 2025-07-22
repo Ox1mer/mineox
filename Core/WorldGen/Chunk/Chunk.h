@@ -17,108 +17,35 @@ public:
 
     std::atomic<bool> canBeDeleted{true};
 
-    Chunk(const ChunkPos& pos)
-    : blocks(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE), _mesh(*this), chunkPos(pos)
-    {
-        for (int y = 0; y < CHUNK_SIZE; ++y) {
-            for (int z = 0; z < CHUNK_SIZE; ++z) {
-                for (int x = 0; x < CHUNK_SIZE; ++x) {
-                    BlockPos pos{ glm::ivec3(x, y, z) };
-                    blocks[toIndex(pos)] = BlockFactory::getInstance().create(Blocks::Air);
-                    blocks[toIndex(pos)]->onPlace();
-                }
-            }
-        }
-    }
+    Chunk(const ChunkPos& pos);
 
-    void markSavingStarted() {
-        canBeDeleted.store(false, std::memory_order_release);
-    }
+    void markSavingStarted();
+    void markSavingFinished();
+    bool isDeletable() const;
 
-    void markSavingFinished() {
-        canBeDeleted.store(true, std::memory_order_release);
-    }
+    std::unique_ptr<Block>& getBlockPtr(BlockPos pos);
+    const std::unique_ptr<Block>& getBlockPtr(BlockPos pos) const;
 
-    bool isDeletable() const {
-        return canBeDeleted.load(std::memory_order_acquire);
-    }
+    Block& getBlock(BlockPos pos);
+    const Block& getBlock(BlockPos pos) const;
 
-    std::unique_ptr<Block>& getBlockPtr(BlockPos pos) {
-        return blocks[toIndex(pos)];
-    }
+    void setBlock(BlockPos pos, const Blocks blockType);
+    void breakBlock(BlockPos pos);
 
-    const std::unique_ptr<Block>& getBlockPtr(BlockPos pos) const {
-        return blocks[toIndex(pos)];
-    }
+    const std::vector<std::unique_ptr<Block>>& getBlocks() const;
 
-    Block& getBlock(BlockPos pos) {
-        return *blocks[toIndex(pos)];
-    }
+    void updateChunkBlocksOpaqueData();
+    ChunkBlocksOpaqueData* getBlocksOpaqueData();
 
-    const Block& getBlock(BlockPos pos) const {
-        return *blocks[toIndex(pos)];
-    }
+    void render(Shader shader, const glm::vec3& sunDirection, const glm::vec3& sunColor);
 
-    void setBlock(BlockPos pos, const Blocks blockType) {
-        blocks[toIndex(pos)] = BlockFactory::getInstance().create(blockType);
-        blocks[toIndex(pos)]->onPlace();
-        markChunkDirty();
-    }
+    void markChunkDirty();
 
-    void breakBlock(BlockPos pos) {
-        blocks[toIndex(pos)]->onBreak();
-        blocks[toIndex(pos)] = BlockFactory::getInstance().create(Blocks::Air);
-        markChunkDirty();
-    }
+    int toIndex(BlockPos pos) const;
 
-    const std::vector<std::unique_ptr<Block>>& getBlocks() const {
-        return blocks;
-    }
+    const ChunkPos getChunkPos() const;
 
-    void updateChunkBlocksOpaqueData() {
-        for (int y = 0; y < CHUNK_SIZE; ++y) {
-            for (int z = 0; z < CHUNK_SIZE; ++z) {
-                for (int x = 0; x < CHUNK_SIZE; ++x) {
-                    int index = x + CHUNK_SIZE * (y + CHUNK_SIZE * z);
-                    Block& block = *blocks[index];
-                    blocksOpaqueData.setOpaque(x, y, z, !block.isTransparent());
-                }
-            }
-        }
-    }
-
-    ChunkBlocksOpaqueData* getBlocksOpaqueData() {
-        return &blocksOpaqueData;
-    }
-
-    void render(Shader shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
-        _mesh.render(shader, sunDirection, sunColor);
-    }
-
-    void markChunkDirty() {
-        _mesh.needUpdate = true;
-        _mesh.isUploaded = false;
-    }
-
-    int toIndex(BlockPos pos) const {
-        return pos.position.x + CHUNK_SIZE * (pos.position.y + CHUNK_SIZE * pos.position.z);
-    }
-
-    const ChunkPos getChunkPos() const {
-        return chunkPos;
-    }
-
-    void setBlocks(const std::vector<std::pair<BlockPos, Blocks>>& changes) {
-        for (const auto& [pos, blockType] : changes) {
-            int idx = toIndex(pos);
-            if (idx < 0 || idx >= (int)blocks.size()) continue;
-
-            blocks[idx] = BlockFactory::getInstance().create(blockType);
-            blocks[idx]->onPlace();
-        }
-        markChunkDirty();
-    }
-
+    void setBlocks(const std::vector<std::pair<BlockPos, Blocks>>& changes);
 
 private:
     std::vector<std::unique_ptr<Block>> blocks;

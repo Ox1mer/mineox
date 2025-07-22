@@ -93,6 +93,7 @@ public:
 private:
     Logger()
     {
+        PathProvider::getInstance();
         switchLogStrategy(LogLevel::Info);
 
         auto& paths = PathProvider::getInstance();
