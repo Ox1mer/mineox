@@ -1,6 +1,8 @@
 #include "Chunk.h"
 #include "ServiceLocator.h"
 
+#include <GL/glext.h>
+
 Chunk::Chunk(const ChunkPos& pos)
 : blocks(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE), _mesh(*this), chunkPos(pos)
 {
@@ -47,14 +49,14 @@ void Chunk::setBlock(BlockPos pos, const Blocks blockType) {
     blocks[toIndex(pos)] = BlockFactory::getInstance().create(blockType);
     blocks[toIndex(pos)]->onPlace();
     markChunkDirty();
-    ServiceLocator::GetWorld()->getChunkController().getChunkDataAccess()->saveChunkToDisk(chunkPos, *this, ServiceLocator::GetWorld()->getWorldName());
+    updateNearChunks(pos.position);
 }
 
 void Chunk::breakBlock(BlockPos pos) {
     blocks[toIndex(pos)]->onBreak();
     blocks[toIndex(pos)] = BlockFactory::getInstance().create(Blocks::Air);
     markChunkDirty();
-    ServiceLocator::GetWorld()->getChunkController().getChunkDataAccess()->saveChunkToDisk(chunkPos, *this, ServiceLocator::GetWorld()->getWorldName());
+    updateNearChunks(pos.position);
 }
 
 const std::vector<std::unique_ptr<Block>>& Chunk::getBlocks() const {
@@ -101,6 +103,56 @@ void Chunk::setBlocks(const std::vector<std::pair<BlockPos, Blocks>>& changes) {
 
         blocks[idx] = BlockFactory::getInstance().create(blockType);
         blocks[idx]->onPlace();
+        updateNearChunks(pos.position);
     }
     markChunkDirty();
+}
+
+void Chunk::renderDepth(Shader& depthShader) {
+    if (_mesh.indexCount == 0 || _mesh.VAO == 0) return;
+
+    depthShader.use();
+
+    glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(chunkPos.position));
+
+    depthShader.setMat4("model", modelMatrix);
+
+    glBindVertexArray(_mesh.VAO);
+    glDrawElements(GL_TRIANGLES, _mesh.indexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void Chunk::updateNearChunks(glm::ivec3 localPos) {
+    const int s = Chunk::CHUNK_SIZE;
+
+    const bool atMinX = localPos.x == 0;
+    const bool atMaxX = localPos.x == s - 1;
+    const bool atMinY = localPos.y == 0;
+    const bool atMaxY = localPos.y == s - 1;
+    const bool atMinZ = localPos.z == 0;
+    const bool atMaxZ = localPos.z == s - 1;
+
+    if (!(atMinX || atMaxX || atMinY || atMaxY || atMinZ || atMaxZ)) {
+        return;
+    }
+
+    if (atMinX) updateNeighborMesh({-1, 0, 0});
+    if (atMaxX) updateNeighborMesh({ 1, 0, 0});
+    if (atMinY) updateNeighborMesh({ 0,-1, 0});
+    if (atMaxY) updateNeighborMesh({ 0, 1, 0});
+    if (atMinZ) updateNeighborMesh({ 0, 0,-1});
+    if (atMaxZ) updateNeighborMesh({ 0, 0, 1});
+}
+
+void Chunk::updateNeighborMesh(glm::ivec3 offset) {
+    auto world = ServiceLocator::GetWorld();
+    ChunkPos neighborPos = chunkPos;
+    neighborPos.position += offset;
+
+    auto neighbor = world->getChunkController().getChunk(neighborPos);
+    if (neighbor.has_value()) {
+        neighbor.value().get()._mesh.needUpdate = true;
+        neighbor.value().get()._mesh.isUploaded = false;
+        neighbor.value().get().updateChunkBlocksOpaqueData();
+    }
 }

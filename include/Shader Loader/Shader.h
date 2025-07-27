@@ -134,7 +134,10 @@ public:
     {
         glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, GL_FALSE, &mat[0][0]);
     }
-
+    // ------------------------------------------------------------------------
+    static Shader fromPaths(const std::array<std::filesystem::path, 2>& paths) {
+        return Shader(paths[0].string().c_str(), paths[1].string().c_str());
+    }
 private:
     // utility function for checking shader compilation/linking errors.
     // ------------------------------------------------------------------------

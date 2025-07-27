@@ -1,50 +1,35 @@
 #include "ChunkMemoryContainer.h"
-#include "ThreadPoolPriorityTask.h"
 
 std::optional<std::reference_wrapper<Chunk>> ChunkMemoryContainer::getChunk(const ChunkPos& pos) const {
     std::shared_lock lock(_mutex);
     auto it = _chunks.find(pos);
-    if (it == _chunks.end()) {
-        return std::nullopt;
-    }
+    if (it == _chunks.end()) return std::nullopt;
     return std::ref(*it->second);
 }
 
 void ChunkMemoryContainer::removeChunk(const ChunkPos& pos) {
     std::unique_lock lock(_mutex);
-    auto it = _chunks.find(pos);
-    if (it == _chunks.end()) return;
-    _chunks.erase(it);
+    _chunks.erase(pos);
 }
 
 void ChunkMemoryContainer::loadChunk(const ChunkPos& pos, std::unique_ptr<Chunk> chunk) {
     std::unique_lock lock(_mutex);
-    auto [it, inserted] = _chunks.emplace(pos, std::move(chunk));
+    auto [_, inserted] = _chunks.emplace(pos, std::move(chunk));
     if (!inserted) {
         Logger::getInstance().Log(
             "Chunk already loaded at position: " + pos.toString(),
-            LogLevel::Warning,
-            LogOutput::Both,
-            LogWriteMode::Append
+            LogLevel::Warning
         );
-        return;
     }
 }
 
 void ChunkMemoryContainer::unloadChunk(const ChunkPos& pos) {
-    {
-        std::unique_lock lock(_mutex);
-        auto it = _chunks.find(pos);
-        if (it == _chunks.end()) {
-            Logger::getInstance().Log(
-                "Chunk not found at position: " + pos.toString(),
-                LogLevel::Warning,
-                LogOutput::Both,
-                LogWriteMode::Append
-            );
-            return;
-        }
-        _chunks.erase(it);
+    std::unique_lock lock(_mutex);
+    if (_chunks.erase(pos) == 0) {
+        Logger::getInstance().Log(
+            "Chunk not found at position: " + pos.toString(),
+            LogLevel::Warning
+        );
     }
 }
 
@@ -52,7 +37,7 @@ std::vector<ChunkPos> ChunkMemoryContainer::getLoadedChunksPosition() const {
     std::shared_lock lock(_mutex);
     std::vector<ChunkPos> positions;
     positions.reserve(_chunks.size());
-    for (auto const& [pos, _] : _chunks) {
+    for (auto& [pos, _] : _chunks) {
         positions.push_back(pos);
     }
     return positions;
@@ -65,22 +50,22 @@ void ChunkMemoryContainer::removeUnlistedChunks(
 
     {
         std::shared_lock lock(_mutex);
-        for (const auto& [pos, chunk] : _chunks) {
+        for (auto& [pos, chunk] : _chunks) {
             if (std::find(chunksPos.begin(), chunksPos.end(), pos) == chunksPos.end()) {
-                if (chunk->canBeDeleted) {
+                if (chunk->canBeDeleted && !_loadingSet.contains(pos)) {
                     toRemove.push_back(pos);
                 }
             }
         }
     }
 
-    const size_t batchSize = 3;
+    const size_t batchSize = 10;
 
     for (size_t i = 0; i < toRemove.size(); i += batchSize) {
         size_t end = std::min(i + batchSize, toRemove.size());
         std::vector<ChunkPos> batch(toRemove.begin() + i, toRemove.begin() + end);
 
-        ThreadPool::getInstance().enqueueChunkTask(Priority::Low, [this, batch, worldName]() {
+        ThreadPool::getInstance().enqueueChunkTask([this, batch, worldName]() {
             for (const auto& pos : batch) {
                 std::unique_ptr<Chunk> chunkToSave;
 
@@ -102,27 +87,20 @@ void ChunkMemoryContainer::removeUnlistedChunks(
     }
 }
 
-
 void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunksPos, const std::string& worldName) {
     std::vector<ChunkPos> toLoad;
 
     {
-        std::shared_lock lock(_mutex);
+        std::unique_lock lock(_mutex);
         for (const auto& chunkPos : chunksPos) {
-            if (!getChunk(chunkPos).has_value() && !_loadingSet.contains(chunkPos)) {
+            if (!_chunks.contains(chunkPos) && !_loadingSet.contains(chunkPos)) {
+                _loadingSet.insert(chunkPos);
                 toLoad.push_back(chunkPos);
             }
         }
     }
 
-    {
-        std::unique_lock lock(_mutex);
-        for (const auto& chunkPos : toLoad) {
-            _loadingSet.insert(chunkPos);
-        }
-    }
-
-    const size_t batchSize = 3;
+    const size_t batchSize = 10;
 
     for (size_t i = 0; i < toLoad.size(); i += batchSize) {
         std::vector<std::pair<ChunkPos, bool>> batch;
@@ -130,11 +108,13 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
 
         for (size_t j = i; j < end; ++j) {
             const auto& chunkPos = toLoad[j];
-            bool exists = FileHandler::getInstance().fileExists(PathProvider::getInstance().getChunkFilePath(worldName, chunkPos));
+            bool exists = FileHandler::getInstance().fileExists(
+                PathProvider::getInstance().getChunkFilePath(worldName, chunkPos)
+            );
             batch.emplace_back(chunkPos, exists);
         }
 
-        ThreadPool::getInstance().enqueueChunkTask(Priority::High, [this, batch = std::move(batch), worldName]() mutable {
+        ThreadPool::getInstance().enqueueChunkTask([this, batch = std::move(batch), worldName]() mutable {
             for (auto& [chunkPos, exists] : batch) {
                 std::unique_ptr<Chunk> chunk;
 
@@ -144,16 +124,21 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
                     chunk = _chunkLoader.generateChunk(chunkPos);
                 }
 
-                if (chunk) {
+                {
                     std::unique_lock lock(_mutex);
-                    auto [it, inserted] = _chunks.emplace(chunkPos, std::move(chunk));
-                    if (!inserted) {
-                        Logger::getInstance().Log("Chunk already loaded", LogLevel::Warning);
+
+                    if (chunk) {
+                        auto [_, inserted] = _chunks.emplace(chunkPos, std::move(chunk));
+                        if (!inserted) {
+                            Logger::getInstance().Log("Chunk already loaded", LogLevel::Warning);
+                        }
                     }
+
                     _loadingSet.erase(chunkPos);
                 }
             }
         });
     }
+
     removeUnlistedChunks(chunksPos, worldName);
 }

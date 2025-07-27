@@ -47,6 +47,11 @@ public:
 
     void setBlocks(const std::vector<std::pair<BlockPos, Blocks>>& changes);
 
+    void renderDepth(Shader& depthShader);
+
+    void updateNearChunks(glm::ivec3 localPos);
+    void updateNeighborMesh(glm::ivec3 offset);
+
 private:
     std::vector<std::unique_ptr<Block>> blocks;
     ChunkMesh _mesh;

@@ -2,13 +2,13 @@
 #include <functional>
 #include <queue>
 
-#include "ThreadPoolPriorityTask.h"
+#include "Priority.h"
 
-struct PriorityTask {
+struct Task {
     std::function<void()> task;
     Priority priority;
 
-    bool operator<(const PriorityTask& other) const {
+    bool operator<(const Task& other) const {
         return static_cast<int>(priority) < static_cast<int>(other.priority);
     }
 };

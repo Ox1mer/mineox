@@ -10,9 +10,13 @@ out vec3 Normal;
 out vec2 TexCoords;
 flat out int TextureIndex;
 
+// Добавляем координаты в пространстве света (shadow map)
+out vec4 FragPosLightSpace;
+
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+uniform mat4 lightSpaceMatrix;  // матрица света
 
 void main()
 {
@@ -20,6 +24,8 @@ void main()
     Normal = mat3(transpose(inverse(model))) * aNormal;
     TexCoords = aTexCoords; 
     TextureIndex = aTextureIndex;
+
+    FragPosLightSpace = lightSpaceMatrix * model * vec4(aPos, 1.0);
 
     gl_Position = projection * view * model * vec4(aPos, 1.0);
 }

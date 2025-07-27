@@ -41,6 +41,10 @@ public:
     // === Debug ===
     void logChunks() const;
 
+    std::unordered_map<ChunkPos, std::unique_ptr<Chunk>>& getLoadedChunks() {
+        return _chunks;
+    }
+
 private:
     mutable std::shared_mutex _mutex;
     std::mutex _loadingMutex;

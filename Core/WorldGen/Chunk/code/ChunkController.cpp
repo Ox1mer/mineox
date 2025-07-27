@@ -55,7 +55,6 @@ std::optional<std::reference_wrapper<Block>> ChunkController::getBlock(const Blo
             toLocal(pos.position.z)
         };
 
-        // Теперь можно получить блок по локальной позиции
         return chunkOpt->get().getBlock(BlockPos(localPos));
     }
     return std::nullopt;

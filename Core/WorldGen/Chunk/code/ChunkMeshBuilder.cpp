@@ -3,6 +3,7 @@
 #include "Logger.h"
 #include "PathProvider.h"
 #include "ScopedTimer.h"
+#include "ServiceLocator.h"
 
 ChunkMeshBuilder::ChunkMeshBuilder(Chunk& chunk) : chunk(chunk) {}
 
@@ -67,8 +68,6 @@ void ChunkMeshBuilder::addQuad(glm::ivec3 pos,
                                int w,
                                int h,
                                int textureID) {
-    static int addQuadCounter = 0;
-    ++addQuadCounter;
     unsigned int startIndex = vertices.size();
     glm::vec3 normal = face.normal;
 
@@ -82,20 +81,83 @@ void ChunkMeshBuilder::addQuad(glm::ivec3 pos,
     vertices.push_back(Vertex{v2, normal, {1, 1}, textureID});
     vertices.push_back(Vertex{v3, normal, {0, 1}, textureID});
 
-    indices.push_back(startIndex + 0);
-    indices.push_back(startIndex + 1);
-    indices.push_back(startIndex + 2);
-    indices.push_back(startIndex + 2);
-    indices.push_back(startIndex + 3);
-    indices.push_back(startIndex + 0);
+    // Проверяем нормаль к вектору ребра, чтобы определить ориентацию
+    glm::vec3 edge1 = v1 - v0;
+    glm::vec3 edge2 = v3 - v0;
+    glm::vec3 faceNormal = glm::normalize(glm::cross(edge1, edge2));
+
+    // Если направление нормали не совпадает с face.normal - меняем порядок индексов
+    if (glm::dot(faceNormal, normal) < 0) {
+        // Меняем порядок для треугольников (0,3,2) и (2,1,0)
+        indices.push_back(startIndex + 0);
+        indices.push_back(startIndex + 3);
+        indices.push_back(startIndex + 2);
+
+        indices.push_back(startIndex + 2);
+        indices.push_back(startIndex + 1);
+        indices.push_back(startIndex + 0);
+    } else {
+        // Обычный порядок (0,1,2) и (2,3,0)
+        indices.push_back(startIndex + 0);
+        indices.push_back(startIndex + 1);
+        indices.push_back(startIndex + 2);
+
+        indices.push_back(startIndex + 2);
+        indices.push_back(startIndex + 3);
+        indices.push_back(startIndex + 0);
+    }
 }
 
 bool ChunkMeshBuilder::getOpaqueSafe(ChunkBlocksOpaqueData* opaque, glm::ivec3 localPos) {
     int s = Chunk::CHUNK_SIZE;
-    if (localPos.x < 0 || localPos.y < 0 || localPos.z < 0 ||
-        localPos.x >= s || localPos.y >= s || localPos.z >= s)
+
+    // В пределах текущего чанка
+    if (localPos.x >= 0 && localPos.x < s &&
+        localPos.y >= 0 && localPos.y < s &&
+        localPos.z >= 0 && localPos.z < s) 
+    {
+        return opaque->isOpaque(localPos.x, localPos.y, localPos.z);
+    }
+
+    // Вышли за границы - ищем соседний чанк
+    glm::ivec3 neighborChunkOffset(0);
+    glm::ivec3 neighborLocalPos = localPos;
+
+    if (localPos.x < 0) {
+        neighborChunkOffset.x = -1;
+        neighborLocalPos.x += s;
+    } else if (localPos.x >= s) {
+        neighborChunkOffset.x = 1;
+        neighborLocalPos.x -= s;
+    }
+
+    if (localPos.y < 0) {
+        neighborChunkOffset.y = -1;
+        neighborLocalPos.y += s;
+    } else if (localPos.y >= s) {
+        neighborChunkOffset.y = 1;
+        neighborLocalPos.y -= s;
+    }
+
+    if (localPos.z < 0) {
+        neighborChunkOffset.z = -1;
+        neighborLocalPos.z += s;
+    } else if (localPos.z >= s) {
+        neighborChunkOffset.z = 1;
+        neighborLocalPos.z -= s;
+    }
+
+    // Получаем соседний чанк
+    ChunkPos neighborChunkPos = chunk.getChunkPos();
+    neighborChunkPos.position += neighborChunkOffset;
+
+    auto neighborChunk = ServiceLocator::GetWorld()->getChunkController().getChunk(neighborChunkPos);
+    if (!neighborChunk.has_value()) {
+        // Соседнего чанка ещё нет - считаем пустым
         return false;
-    return opaque->isOpaque(localPos.x, localPos.y, localPos.z);
+    }
+
+    return !neighborChunk->get().getBlock(BlockPos(neighborLocalPos)).isTransparent();
 }
 
 void ChunkMeshBuilder::clear() {

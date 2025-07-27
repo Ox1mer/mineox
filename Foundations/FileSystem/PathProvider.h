@@ -1,4 +1,5 @@
 #pragma once
+
 #include <filesystem>
 #include <stdexcept>
 #include <array>
@@ -89,7 +90,31 @@ public:
         };
     }
 
+    std::array<fs::path, 2> getDepthShaderPath() const {
+        return {
+            dataPath / "shaders" / "depth.vs",
+            dataPath / "shaders" / "depth.fs"
+        };
+    }
+
 private:
+
+    void createDirectories() {
+        auto& fh = FileHandler::getInstance();
+        fh.createDirectory(configPath);
+        fh.createDirectory(screenshotsFolderPath);
+        fh.createDirectory(logsPath);
+        fh.createDirectory(dataPath);
+        fh.createDirectory(worldsPath);
+        fh.createDirectory(textureFolderPath);
+        fh.createDirectory(getFontsPath());
+        fh.createDirectory(getShadersPath());
+        fh.createDirectory(getBlocksTextureFolderPath());
+        fh.ensureFontPresent(getFontsPath() / "arial.ttf");
+        fh.ensureShaderPresent(getShadersPath());
+        fh.ensureTexturesPresent(getTextureFolderPath());
+    }
+
     PathProvider() {
         const char* appdata = std::getenv("APPDATA");
         if (!appdata) throw std::runtime_error("APPDATA env var not found");
@@ -101,18 +126,7 @@ private:
         textureFolderPath = dataPath / "textures";
         screenshotsFolderPath = rootPath / "screenshots";
 
-        FileHandler::getInstance().createDirectory(configPath);
-        FileHandler::getInstance().createDirectory(screenshotsFolderPath);
-        FileHandler::getInstance().createDirectory(logsPath);
-        FileHandler::getInstance().createDirectory(dataPath);
-        FileHandler::getInstance().createDirectory(worldsPath);
-        FileHandler::getInstance().createDirectory(textureFolderPath);
-        FileHandler::getInstance().createDirectory(getFontsPath());
-        FileHandler::getInstance().createDirectory(getShadersPath());
-        FileHandler::getInstance().createDirectory(getBlocksTextureFolderPath());
-        FileHandler::getInstance().ensureFontPresent(getFontsPath() / "arial.ttf");
-        FileHandler::getInstance().ensureShaderPresent(getShadersPath());
-        FileHandler::getInstance().ensureTexturesPresent(getTextureFolderPath());
+        createDirectories();
     }
 
     ~PathProvider() = default;

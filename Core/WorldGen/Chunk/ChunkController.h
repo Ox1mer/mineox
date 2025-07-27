@@ -49,6 +49,10 @@ public:
         return _chunkDataAccess;
     }
 
+    std::unordered_map<ChunkPos, std::unique_ptr<Chunk>>& getLoadedChunks() const {
+        return _chunkMemoryContainer->getLoadedChunks();
+    }
+
 private:
     glm::ivec3 worldToChunk(const glm::ivec3& worldPos) const;
 

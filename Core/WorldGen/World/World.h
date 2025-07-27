@@ -6,13 +6,17 @@
 #include "PlayerPos.h"
 #include "Shader.h"
 #include "RayCastHit.h"
+#include "ShadowController.h"
+#include "TimeOfDayController.h"
 
 class World {
 private:
     int seed;
     std::string worldName;
     ChunkController _chunkController;
-    int viewDistance = 1;
+    ShadowController _shadowController;
+    TimeOfDayController _timeOfDayController;
+    int viewDistance = 5;
 
 public:
     World(int seed, std::string worldName)
@@ -33,6 +37,16 @@ public:
     ChunkController& getChunkController() { return _chunkController; }
     int getSeed() const { return seed; }
     const std::string& getWorldName() const { return worldName; }
+    TimeOfDayController& getTimeOfDayController() { return _timeOfDayController; }
+
+    int getViewDistance() const { return viewDistance; }
+    void setViewDistance(int distance) {
+        if (distance > 0) {
+            viewDistance = distance;
+        }
+    }
+
+    ShadowController& getShadowController() { return _shadowController; }
 
     std::optional<RaycastHit> raycast(const glm::vec3& startPos, const glm::vec3& dir, float maxDistance) {
         glm::vec3 pos = startPos;
