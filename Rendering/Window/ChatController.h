@@ -30,6 +30,13 @@ public:
         offsetY = y;
     }
 
+    ChatController(Shader& shader, float offsetX = 0.0f, float offsetY = 0.0f)
+        : shader(shader)
+    {
+        setOffset(offsetX, offsetY);
+        init();
+    }
+
     void init() {
         glGenVertexArrays(1, &quadVAO);
         glGenBuffers(1, &quadVBO);
@@ -42,6 +49,14 @@ public:
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
 
         glBindVertexArray(0);
+    }
+
+    bool getVisibility() {
+        return isVisible;
+    }
+
+    void setvisible(bool visible) {
+        isVisible = visible;
     }
 
     void render(float screenWidth, float screenHeight) {

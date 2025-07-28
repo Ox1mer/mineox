@@ -97,6 +97,13 @@ public:
         };
     }
 
+    std::array<fs::path, 2> getChatShadersPath() const {
+        return {
+            dataPath / "shaders" / "chat.vs",
+            dataPath / "shaders" / "chat.fs"
+        };
+    }
+
 private:
 
     void createDirectories() {

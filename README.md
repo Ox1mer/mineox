@@ -39,22 +39,12 @@ Here’s what MineOX looks like in action:
 
 <p align="center">
   <img src="screenshots/2.png" alt="Block Placement"/><br/>
-  <em>Custom blocks with unique textures.</em>
+  <em>You can place and destroy the blocks.</em>
 </p>
 
 <p align="center">
   <img src="screenshots/3.png" alt="Infinite Generation"/><br/>
   <em>Infinite chunks and procedural terrain.</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/4.jpg" alt="Add New Block"/><br/>
-  <em>You can easily add new blocks — just create a file for it.</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/5.png" alt="Register Block"/><br/>
-  <em>Registering new blocks is just as easy.</em>
 </p>
 
 ---
