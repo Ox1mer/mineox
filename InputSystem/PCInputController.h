@@ -52,10 +52,7 @@ public:
             }
 
             if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
-                if (!chatController.getInputBuffer().empty()) {
-                    chatController.addMessage(chatController.getInputBuffer());
-                    chatController.clearInputBuffer();
-                }
+                chatController.enterPressed();
             }
 
         } else {

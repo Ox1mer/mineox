@@ -46,6 +46,8 @@ std::unique_ptr<IInputController> inputController =
     nullptr;
 #endif
 
+#include "CommandsIncluder.h"
+
 WindowContext ctx;
 
 void setupSceneShader(Shader& shader, 
@@ -135,6 +137,9 @@ int main() {
     ChatController chatController = ChatController(chatShader);
     chatController.init();
     chatController.setvisible(true);
+
+    ServiceLocator::ProvideChatController(&chatController);
+    ServiceLocator::ProvideCamera(&camera);
 
     glfwSetWindowUserPointer(window, &chatController);
     windowController.registerCharCallback();

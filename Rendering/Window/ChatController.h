@@ -10,6 +10,9 @@
 #include "FontsLoader.h"
 #include "GLSettingsController.h"
 
+#include "ChatCommands.h"
+#include "ChatCommandFactory.h"
+
 class ChatController {
 private:
     std::vector<std::string> messages;
@@ -198,7 +201,7 @@ public:
                 "Type your message here...",
                 x + 10.0f, y + inputBoxHeight / 2.0f - 0.2f * inputBoxHeight,
                 0.7f,
-                glm::vec3(0.980f, 0.980f, 0.980f),
+                glm::vec3(192.0f / 255.0f, 192.0f / 255.0f, 192.0f / 255.0f),
                 fontsLoader.fontProjection
             );
             openGLSettingsController.enableCullDepth();
@@ -278,6 +281,47 @@ public:
             std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> conv;
             return conv.to_bytes(codepoint);
         }
+    
+    void enterPressed() {
+        if (inputBuffer.empty()) return;
+
+        auto message = inputBuffer;
+        clearInputBuffer();
+
+        if (message[0] == '/') {
+            handleCommand(message.substr(1));
+        } else {
+            addMessage(message);
+        }
+    }
+
+    void clearMessages() {
+        messages.clear();
+    }
+
+    void handleCommand(const std::string& commandLine) {
+        std::istringstream iss(commandLine);
+        std::string commandName;
+        iss >> commandName;
+
+        auto it = ChatCommandNameMap.find(commandName);
+        if (it == ChatCommandNameMap.end()) {
+            addMessage("Unknown command: " + commandName);
+            return;
+        }
+
+        ChatCommandID id = it->second;
+
+        auto command = ChatCommandFactory::getInstance().create(id);
+        if (command) {
+            std::string args;
+            std::getline(iss, args);
+            command->execute(args);
+        } else {
+            addMessage("Command not implemented: " + commandName);
+        }
+    }
+
 private:
     void removeLastUtf8Char(std::string& str) {
         if (str.empty()) return;
