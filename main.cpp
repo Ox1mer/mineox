@@ -46,6 +46,8 @@ std::unique_ptr<IInputController> inputController =
     nullptr;
 #endif
 
+WindowContext ctx;
+
 void setupSceneShader(Shader& shader, 
                       const Camera& camera, 
                       const glm::mat4& projection,
@@ -116,17 +118,32 @@ int main() {
     Shader wireFrameCubeShader  = Shader::fromPaths(pathProvider.getWireFrameCubeShadersPath());
     Shader fontsShader          = Shader::fromPaths(pathProvider.getFontShadersPath());
     Shader depthShader          = Shader::fromPaths(pathProvider.getDepthShaderPath());
+    Shader chatShader           = Shader::fromPaths(pathProvider.getChatShadersPath());
 
     TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath());
     TextureController::getInstance().initializeTextures(shader.ID);
     
+    float symbolSize = 32.0f; // Size of the font symbols
+
     fontsLoader.loadFont((PathProvider::getInstance().getFontsPath() / "arial.ttf").string());
-    fontsLoader.loadCharacters(32);
+    fontsLoader.loadCharacters(symbolSize);
 
     world.getShadowController().init();
     WireFrameCube wireFrameCube;
     wireFrameCube.init();
 
+    ChatController chatController = ChatController(chatShader);
+    chatController.init();
+    chatController.setvisible(true);
+
+    glfwSetWindowUserPointer(window, &chatController);
+    windowController.registerCharCallback();
+
+    ctx.camera = &camera;
+    ctx.chat = &chatController;
+
+    glfwSetWindowUserPointer(window, &ctx);
+    
     glm::mat4 projection = glm::perspective(
         glm::radians(camera.FOV),
         (float)windowController.getWidth() / (float)windowController.getHeight(),
@@ -144,7 +161,7 @@ int main() {
             
             world.getTimeOfDayController().update(deltaTime);
             auto skyLightInfo = world.getTimeOfDayController().getSkyLightInfo();
-
+            
             glClearColor(skyLightInfo.skyColor.r, skyLightInfo.skyColor.g, skyLightInfo.skyColor.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -161,26 +178,38 @@ int main() {
 
             f3InfoScreen.update(deltaTime, camera, world, raycastHit);
 
-            inputController->processKeyInput(&camera, deltaTime, raycastHit, choosedBlock, window);
+            inputController->processKeyInput(&camera, deltaTime, raycastHit, choosedBlock, window, chatController);
+            
             world.update(PlayerPos(glm::ivec3(camera.Position.x, camera.Position.y, camera.Position.z)));
 
             setupSceneShader(shader, camera, projection, model, world, skyLightInfo);
             world.render(shader, skyLightInfo.lightDirection, skyLightInfo.lightColor);
 
+            
             if (raycastHit) {
                 wireFrameCube.render(glm::vec3(raycastHit->blockPos), camera, projection, wireFrameCubeShader);
             }
-
+            
             //stateController.render();
             
             openGLSettingsController.disableCullDepth();
             f3InfoScreen.render(fontsLoader, fontsShader, static_cast<float>(windowController.getHeight()));
+            openGLSettingsController.enableCullDepth();
+            
+            openGLSettingsController.disableCullDepth();
+            chatController.render(windowController.getWidth(), windowController.getHeight(), symbolSize, fontsLoader, fontsShader);
             openGLSettingsController.enableCullDepth();
 
             if(inputController->getShouldTakeScreenshot()) {
                 screenshotCreator.doTheScreenshotAndSave(window);
                 Logger::getInstance().Log("Screenshot taken", LogLevel::Info, LogOutput::Both, LogWriteMode::Append);
                 inputController->setShouldTakeScreenshot(false);
+            }
+
+            if (chatController.getVisibility()) {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            } else {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             }
 
             GLResourceDeleter::getInstance().processDeletes();

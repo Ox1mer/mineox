@@ -91,11 +91,20 @@ int main() {
     TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath());
     TextureController::getInstance().initializeTextures(shader.ID);
     
+    float symbolSize = 32.0f; // Size of the font symbols
+
     fontsLoader.loadFont((PathProvider::getInstance().getFontsPath() / "arial.ttf").string());
-    fontsLoader.loadCharacters(32);
+    fontsLoader.loadCharacters(symbolSize);
 
     ChatController chatController = ChatController(chatShader);
     chatController.setvisible(true);
+
+    chatController.addMessage("Test message 1");
+    chatController.addMessage("Test message 2");
+    chatController.addMessage("/help");
+    chatController.addMessage("This is a test message to check the chat functionality.");
+    chatController.addMessage("Another message to see how it handles multiple lines.");
+    chatController.addMessage("This is a long message that should wrap around to the next line if it exceeds the width of the chat box. Let's see how it handles this case.");
     
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -106,7 +115,7 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         openGLSettingsController.disableCullDepth();
-        chatController.render(windowController.getWidth(), windowController.getHeight());
+        chatController.render(windowController.getWidth(), windowController.getHeight(), symbolSize, fontsLoader, fontsShader);
         openGLSettingsController.enableCullDepth();
 
         glfwPollEvents();
@@ -118,4 +127,4 @@ int main() {
     Logger::getInstance().Log("Application shutdown", LogLevel::Warning, LogOutput::Both, LogWriteMode::Append);
     windowController.shutdown();
     return 0;
-}   
+}

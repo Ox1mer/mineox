@@ -9,6 +9,8 @@
 #include <optional>
 #include <GLFW/glfw3.h>
 
+#include "ChatController.h"
+
 class IInputController
 {
 public:
@@ -17,5 +19,5 @@ public:
     virtual bool getShouldTakeScreenshot() const = 0;
     virtual void setShouldTakeScreenshot(bool value) = 0;
 
-    virtual void processKeyInput(Camera* camera, float deltaTime, std::optional<RaycastHit>& raycastHit, Blocks& choosedBlock,  GLFWwindow* window) = 0;
+    virtual void processKeyInput(Camera* camera, float deltaTime, std::optional<RaycastHit>& raycastHit, Blocks& choosedBlock,  GLFWwindow* window, ChatController& chatController) = 0;
 };

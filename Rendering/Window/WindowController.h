@@ -19,6 +19,9 @@
 
 #include <windows.h>
 
+#include "ChatController.h"
+#include "WindowContext.h"
+
 namespace fs = std::filesystem;
 
 class WindowController {
@@ -100,28 +103,45 @@ public:
         glfwSetWindowUserPointer(window, camera);
 
         glfwSetCursorPosCallback(window, [](GLFWwindow* win, double xpos, double ypos) {
-            auto cam = static_cast<Camera*>(glfwGetWindowUserPointer(win));
+            auto* ctx = static_cast<WindowContext*>(glfwGetWindowUserPointer(win));
+            auto* chat = ctx->chat;
 
-            static float lastX = 0.0f;
-            static float lastY = 0.0f;
-            static bool firstMouse = true;
+            if (chat && !chat->getVisibility()) {
+                auto* ctx = static_cast<WindowContext*>(glfwGetWindowUserPointer(win));
+                auto* cam = ctx->camera;
 
-            if (firstMouse) {
+                static float lastX = 0.0f;
+                static float lastY = 0.0f;
+                static bool firstMouse = true;
+
+                if (firstMouse) {
+                    lastX = xpos;
+                    lastY = ypos;
+                    firstMouse = false;
+                }
+
+                float xoffset = xpos - lastX;
+                float yoffset = lastY - ypos;
+
                 lastX = xpos;
                 lastY = ypos;
-                firstMouse = false;
+
+                cam->ProcessMouseMovement(xoffset, yoffset);
             }
-
-            float xoffset = xpos - lastX;
-            float yoffset = lastY - ypos;
-
-            lastX = xpos;
-            lastY = ypos;
-
-            cam->ProcessMouseMovement(xoffset, yoffset);
         });
 
         Logger::getInstance().Log("Camera controls bound (mouse look active)", LogLevel::Info, LogOutput::Both, LogWriteMode::Append);
+    }
+
+    void registerCharCallback() {
+        glfwSetCharCallback(window, [](GLFWwindow* window, unsigned int codepoint) {
+            auto* ctx = static_cast<WindowContext*>(glfwGetWindowUserPointer(window));
+            auto* chat = ctx->chat;
+
+            if (chat && chat->getVisibility()) {
+                chat->addSymbol(chat->utf32ToUtf8(codepoint));
+            }
+        });
     }
 
 private:

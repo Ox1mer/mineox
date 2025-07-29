@@ -68,6 +68,7 @@ struct WireFrameCube
         glLineWidth(2.0f);
 
         glBindVertexArray(VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
