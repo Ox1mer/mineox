@@ -49,17 +49,7 @@ Here’s what MineOX looks like in action:
 
 <p align="center">
   <img src="screenshots/4.png" alt="Simple Chat"/><br/>
-  <em>Chat interface.</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/5.png" alt="Simple Chat"/><br/>
   <em>UTF-8 chat support.</em>
-</p>
-
-<p align="center">
-  <img src="screenshots/6.png" alt="Simple Chat"/><br/>
-  <em>Beautiful line breaks.</em>
 </p>
 
 ---

@@ -19,13 +19,14 @@ public:
     }
 
     void init() {
-        sunShadow = std::make_unique<SunShadow>(4096);
+        sunShadow = std::make_unique<SunShadow>(8192);
         sunShadow->init();
     }
 
     void update(const glm::vec3& lightDirection, const glm::vec3& center, int viewDistance) {
+        glm::vec3 normalizedLightDir = glm::normalize(lightDirection);
         if (sunShadow) {
-            sunShadow->update(lightDirection, center, viewDistance);
+            sunShadow->update(normalizedLightDir, center, viewDistance);
         }
     }
 

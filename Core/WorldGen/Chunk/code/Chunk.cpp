@@ -113,7 +113,7 @@ void Chunk::renderDepth(Shader& depthShader) {
 
     depthShader.use();
 
-    glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), glm::vec3(chunkPos.position));
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
 
     depthShader.setMat4("model", modelMatrix);
 

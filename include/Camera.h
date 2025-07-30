@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "Blocks.h"
 
 enum Camera_Movement {
     FORWARD,
@@ -13,6 +14,7 @@ enum Camera_Movement {
 
 class Camera {
 public:
+    Blocks choosedBlock = Blocks::Dirt;
     glm::vec3 Position;
     glm::vec3 Front;
     glm::vec3 Up;

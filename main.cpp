@@ -63,7 +63,6 @@ std::optional<RaycastHit> raycastHit;
 
 // Later create an entity class - and then Player will be an entity and will have a camera and choosed block controls
 Camera camera;
-Blocks choosedBlock = Blocks::Dirt;
 
 void init() {
     Logger::getInstance().Log("Application started", LogLevel::Info, LogOutput::Both, LogWriteMode::Overwrite);
@@ -122,8 +121,16 @@ int main() {
     Shader depthShader          = Shader::fromPaths(pathProvider.getDepthShaderPath());
     Shader chatShader           = Shader::fromPaths(pathProvider.getChatShadersPath());
 
-    TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath());
-    TextureController::getInstance().initializeTextures(shader.ID);
+    TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath(), {
+        Blocks::Dirt, Blocks::Gneiss,
+        Blocks::Gravel, Blocks::Migmatite, Blocks::Sand,
+        Blocks::SporeMoss, Blocks::Stone
+    });
+    TextureController::getInstance().initializeTextures(shader.ID, {
+        Blocks::Dirt, Blocks::Gneiss,
+        Blocks::Gravel, Blocks::Migmatite, Blocks::Sand,
+        Blocks::SporeMoss, Blocks::Stone
+    });
     
     float symbolSize = 32.0f; // Size of the font symbols
 
@@ -183,7 +190,7 @@ int main() {
 
             f3InfoScreen.update(deltaTime, camera, world, raycastHit);
 
-            inputController->processKeyInput(&camera, deltaTime, raycastHit, choosedBlock, window, chatController);
+            inputController->processKeyInput(&camera, deltaTime, raycastHit, camera.choosedBlock, window, chatController);
             
             world.update(PlayerPos(glm::ivec3(camera.Position.x, camera.Position.y, camera.Position.z)));
 
@@ -241,7 +248,7 @@ void setupSceneShader(Shader& shader,
 
     shader.setMat4("lightSpaceMatrix", world.getShadowController().getSunLightSpaceMatrix());
     shader.setInt("shadowMap", 31);
-    shader.setFloat("shadowMapSize", 4096.0f);
+    shader.setFloat("shadowMapSize", 8192.0f);
     shader.setVec3("lightColor", skyLightInfo.lightColor);
     shader.setVec3("lightDir", skyLightInfo.lightDirection);
     shader.setFloat("lightIntensity", skyLightInfo.lightIntensity);

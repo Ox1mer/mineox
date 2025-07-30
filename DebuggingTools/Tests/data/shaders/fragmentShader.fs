@@ -35,8 +35,9 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal)
     vec3 lightDir = normalize(lightDir);
 
     float currentDepth = projCoords.z;
-    float bias = 0.0015 * tan(acos(ndotl)); 
-    bias = clamp(bias, 0.0006, 0.001);
+    float bias = 0.002 * (1.0 - ndotl);
+    bias = clamp(bias, 0.0003, 0.0007);
+
     float texelSize = 1.0 / shadowMapSize;
 
     float avgBlockerDepth = 0.0;
@@ -114,7 +115,8 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal)
 
 void main()
 {
-    vec4 texColor = texture(textures[TextureIndex], TexCoords);
+    int index = max(TextureIndex - 1, 0);
+    vec4 texColor = texture(textures[index], TexCoords);
 
     vec3 norm = normalize(Normal);
     vec3 lightDirNorm = normalize(-lightDir);

@@ -9,7 +9,7 @@
 
 class SunShadow {
 public:
-    SunShadow(int resolution = 4096)
+    SunShadow(int resolution = 8192)
         : resolution(resolution) {}
 
     ~SunShadow() {
@@ -31,7 +31,6 @@ public:
 
         depthShader.use();
         depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-        depthShader.setMat4("model", glm::mat4(1.0f));
 
         for (const auto& chunk : visibleChunks) {
             chunk->renderDepth(depthShader);
@@ -70,8 +69,8 @@ private:
         glBindTexture(GL_TEXTURE_2D, depthMap);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, resolution, resolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
 
@@ -91,9 +90,10 @@ private:
     }
 
     void computeLightSpaceMatrix(const glm::vec3& lightDir, const glm::vec3& center, int viewDistance) {
-        float shadowDistance = 64 * viewDistance;
+        float shadowDistance = 64.0f * viewDistance;
 
-        glm::vec3 snappedCenter = glm::floor(center / 64.0f) * 64.0f;
+        float snapValue = 64.0f;
+        glm::vec3 snappedCenter = glm::floor(center / snapValue) * snapValue;
 
         glm::vec3 lightPos = snappedCenter - lightDir * shadowDistance;
 
@@ -106,4 +106,5 @@ private:
 
         lightSpaceMatrix = lightProj * lightView;
     }
+
 };
