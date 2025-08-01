@@ -45,6 +45,8 @@ public:
         return _chunks;
     }
 
+    void loadInitialChunksBlocking(const std::vector<ChunkPos>& chunksPos, const std::string& worldName);
+
 private:
     mutable std::shared_mutex _mutex;
     std::mutex _loadingMutex;

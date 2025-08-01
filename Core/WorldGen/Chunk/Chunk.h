@@ -23,8 +23,8 @@ public:
     void markSavingFinished();
     bool isDeletable() const;
 
-    std::unique_ptr<Block>& getBlockPtr(BlockPos pos);
-    const std::unique_ptr<Block>& getBlockPtr(BlockPos pos) const;
+    std::shared_ptr<Block>& getBlockPtr(BlockPos pos);
+    const std::shared_ptr<Block>& getBlockPtr(BlockPos pos) const;
 
     Block& getBlock(BlockPos pos);
     const Block& getBlock(BlockPos pos) const;
@@ -32,7 +32,7 @@ public:
     void setBlock(BlockPos pos, const Blocks blockType);
     void breakBlock(BlockPos pos);
 
-    const std::vector<std::unique_ptr<Block>>& getBlocks() const;
+    const std::vector<std::shared_ptr<Block>>& getBlocks() const;
 
     void updateChunkBlocksOpaqueData();
     ChunkBlocksOpaqueData* getBlocksOpaqueData();
@@ -53,7 +53,7 @@ public:
     void updateNeighborMesh(glm::ivec3 offset);
 
 private:
-    std::vector<std::unique_ptr<Block>> blocks;
+    std::vector<std::shared_ptr<Block>> blocks;
     ChunkMesh _mesh;
     ChunkBlocksOpaqueData blocksOpaqueData;
     ChunkPos chunkPos;

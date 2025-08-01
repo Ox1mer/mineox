@@ -8,7 +8,7 @@
             className##Registrar() {                          \
                 BlockFactory::getInstance().registerBlock(    \
                     id, []() {                                \
-                        return std::make_unique<className>();\
+                        return std::make_shared<className>();\
                     }                                         \
                 );                                            \
             }                                                 \

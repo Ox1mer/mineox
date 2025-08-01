@@ -4,14 +4,15 @@
 #include <GL/glext.h>
 
 Chunk::Chunk(const ChunkPos& pos)
-: blocks(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE), _mesh(*this), chunkPos(pos)
+    : blocks(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE), _mesh(*this), chunkPos(pos)
 {
+    auto sharedAirBlock = BlockFactory::getInstance().getSharedAirBlock();
+
     for (int y = 0; y < CHUNK_SIZE; ++y) {
         for (int z = 0; z < CHUNK_SIZE; ++z) {
             for (int x = 0; x < CHUNK_SIZE; ++x) {
                 BlockPos pos{ glm::ivec3(x, y, z) };
-                blocks[toIndex(pos)] = BlockFactory::getInstance().create(Blocks::Air);
-                blocks[toIndex(pos)]->onPlace();
+                blocks[toIndex(pos)] = sharedAirBlock;
             }
         }
     }
@@ -29,11 +30,11 @@ bool Chunk::isDeletable() const {
     return canBeDeleted.load(std::memory_order_acquire);
 }
 
-std::unique_ptr<Block>& Chunk::getBlockPtr(BlockPos pos) {
+std::shared_ptr<Block>& Chunk::getBlockPtr(BlockPos pos) {
     return blocks[toIndex(pos)];
 }
 
-const std::unique_ptr<Block>& Chunk::getBlockPtr(BlockPos pos) const {
+const std::shared_ptr<Block>& Chunk::getBlockPtr(BlockPos pos) const {
     return blocks[toIndex(pos)];
 }
 
@@ -46,20 +47,30 @@ const Block& Chunk::getBlock(BlockPos pos) const {
 }
 
 void Chunk::setBlock(BlockPos pos, const Blocks blockType) {
-    blocks[toIndex(pos)] = BlockFactory::getInstance().create(blockType);
-    blocks[toIndex(pos)]->onPlace();
+    int idx = toIndex(pos);
+
+    if (blockType == Blocks::Air) {
+        blocks[idx] = BlockFactory::getInstance().getSharedAirBlock();
+    } else {
+        blocks[idx] = BlockFactory::getInstance().create(blockType);
+        blocks[idx]->onPlace();
+    }
+
     markChunkDirty();
+    ServiceLocator::GetWorld()->getChunkController().getChunkDataAccess()->saveChunkToDisk(chunkPos, *this, ServiceLocator::GetWorld()->getWorldName());
     updateNearChunks(pos.position);
 }
 
 void Chunk::breakBlock(BlockPos pos) {
-    blocks[toIndex(pos)]->onBreak();
-    blocks[toIndex(pos)] = BlockFactory::getInstance().create(Blocks::Air);
+    int idx = toIndex(pos);
+    blocks[idx]->onBreak();
+    blocks[idx] = BlockFactory::getInstance().getSharedAirBlock();
     markChunkDirty();
+    ServiceLocator::GetWorld()->getChunkController().getChunkDataAccess()->saveChunkToDisk(chunkPos, *this, ServiceLocator::GetWorld()->getWorldName());
     updateNearChunks(pos.position);
 }
 
-const std::vector<std::unique_ptr<Block>>& Chunk::getBlocks() const {
+const std::vector<std::shared_ptr<Block>>& Chunk::getBlocks() const {
     return blocks;
 }
 

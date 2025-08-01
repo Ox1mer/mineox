@@ -59,7 +59,7 @@ void ChunkMemoryContainer::removeUnlistedChunks(
         }
     }
 
-    const size_t batchSize = 10;
+    const size_t batchSize = 32;
 
     for (size_t i = 0; i < toRemove.size(); i += batchSize) {
         size_t end = std::min(i + batchSize, toRemove.size());
@@ -100,7 +100,7 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
         }
     }
 
-    const size_t batchSize = 10;
+    const size_t batchSize = 32;
 
     for (size_t i = 0; i < toLoad.size(); i += batchSize) {
         std::vector<std::pair<ChunkPos, bool>> batch;
@@ -141,4 +141,68 @@ void ChunkMemoryContainer::loadVectorOfChunks(const std::vector<ChunkPos>& chunk
     }
 
     removeUnlistedChunks(chunksPos, worldName);
+}
+
+void ChunkMemoryContainer::loadInitialChunksBlocking(const std::vector<ChunkPos>& chunksPos, const std::string& worldName) {
+    std::vector<ChunkPos> toLoad;
+
+    {
+        std::unique_lock lock(_mutex);
+        for (const auto& chunkPos : chunksPos) {
+            if (!_chunks.contains(chunkPos) && !_loadingSet.contains(chunkPos)) {
+                _loadingSet.insert(chunkPos);
+                toLoad.push_back(chunkPos);
+            }
+        }
+    }
+
+    const size_t batchSize = 10;
+
+    std::vector<std::future<void>> futures;
+
+    for (size_t i = 0; i < toLoad.size(); i += batchSize) {
+        std::vector<std::pair<ChunkPos, bool>> batch;
+        size_t end = std::min(i + batchSize, toLoad.size());
+
+        for (size_t j = i; j < end; ++j) {
+            const auto& chunkPos = toLoad[j];
+            bool exists = FileHandler::getInstance().fileExists(
+                PathProvider::getInstance().getChunkFilePath(worldName, chunkPos)
+            );
+            batch.emplace_back(chunkPos, exists);
+        }
+
+        auto fut = ThreadPool::getInstance().enqueueChunkTask([this, batch = std::move(batch), worldName]() mutable {
+            for (auto& [chunkPos, exists] : batch) {
+                std::unique_ptr<Chunk> chunk;
+
+                if (exists) {
+                    chunk = _chunkLoader.loadChunk(chunkPos, worldName);
+                } else {
+                    chunk = _chunkLoader.generateChunk(chunkPos);
+                }
+
+                {
+                    std::unique_lock lock(_mutex);
+
+                    if (chunk) {
+                        auto [_, inserted] = _chunks.emplace(chunkPos, std::move(chunk));
+                        if (!inserted) {
+                            Logger::getInstance().Log("Chunk already loaded", LogLevel::Warning);
+                        }
+                    }
+
+                    _loadingSet.erase(chunkPos);
+                }
+            }
+        });
+
+        futures.push_back(std::move(fut));
+    }
+
+    removeUnlistedChunks(chunksPos, worldName);
+
+    for (auto& fut : futures) {
+        fut.get();
+    }
 }

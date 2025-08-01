@@ -61,6 +61,9 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 std::optional<RaycastHit> raycastHit;
 
+int shadowUpdateFrameCounter = 0;
+const int shadowUpdateInterval = 10;
+
 // Later create an entity class - and then Player will be an entity and will have a camera and choosed block controls
 Camera camera;
 
@@ -101,6 +104,7 @@ int main() {
     camera = Camera();
     World world(12345, "New world"); // Later, get seed and world name from user input
     ServiceLocator::ProvideWorld(&world);
+    //world.initWorld(camera.Position);
 
     std::vector<std::filesystem::path> dirsToCheck = {
         pathProvider.getWorldChunksPath(world.getWorldName()),
@@ -170,6 +174,8 @@ int main() {
             float currentFrame = static_cast<float>(glfwGetTime());
             deltaTime = currentFrame - lastFrame;
             lastFrame = currentFrame;
+
+            shadowUpdateFrameCounter++;
             
             world.getTimeOfDayController().update(deltaTime);
             auto skyLightInfo = world.getTimeOfDayController().getSkyLightInfo();
@@ -180,7 +186,16 @@ int main() {
             //stateController.handleInput(window);
             //stateController.update(deltaTime);
 
-            world.getShadowController().update(skyLightInfo.lightDirection, camera.Position, world.getViewDistance());
+            if (shadowUpdateFrameCounter >= shadowUpdateInterval) {
+                shadowUpdateFrameCounter = 0;
+
+                world.getShadowController().update(
+                    skyLightInfo.lightDirection,
+                    camera.Position,
+                    world.getViewDistance()
+                );
+            }
+
             world.getShadowController().renderShadows(world.getChunkController().getLoadedChunks(), depthShader);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             // It will change viewport size, so we need to set it again
@@ -197,7 +212,6 @@ int main() {
             setupSceneShader(shader, camera, projection, model, world, skyLightInfo);
             world.render(shader, skyLightInfo.lightDirection, skyLightInfo.lightColor);
 
-            
             if (raycastHit) {
                 wireFrameCube.render(glm::vec3(raycastHit->blockPos), camera, projection, wireFrameCubeShader);
             }

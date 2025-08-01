@@ -53,6 +53,8 @@ public:
         return _chunkMemoryContainer->getLoadedChunks();
     }
 
+    void initWorld(glm::vec3 playerPos, int viewDistance);
+
 private:
     glm::ivec3 worldToChunk(const glm::ivec3& worldPos) const;
 

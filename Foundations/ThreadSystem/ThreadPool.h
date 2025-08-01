@@ -1,18 +1,15 @@
 #pragma once
 
-#include <queue>
 #include <vector>
 #include <thread>
-#include <mutex>
-#include <condition_variable>
 #include <functional>
 #include <future>
 #include <atomic>
 #include <stdexcept>
-#include <memory>
-
-#include "LockFreeQueue.h"
+#include <chrono>
+#include "SPMCQueue.h"
 #include "Task.h"
+#include "Logger.h"
 
 class ThreadPool {
 public:
@@ -21,137 +18,75 @@ public:
         return instance;
     }
 
+    // (Single Producer)
     template<typename F, typename... Args>
     auto enqueueChunkTask(F&& f, Args&&... args)
-        -> std::future<typename std::invoke_result_t<F, Args...>>
+        -> std::future<std::invoke_result_t<F, Args...>>
     {
-        using ReturnType = typename std::invoke_result_t<F, Args...>;
-        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
+        using ReturnType = std::invoke_result_t<F, Args...>;
+
+        auto taskPtr = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...)
         );
-        std::future<ReturnType> result = task->get_future();
 
-        if (stopping) throw std::runtime_error("enqueueChunkTask on stopped ThreadPool");
+        if (stopping.load(std::memory_order_acquire)) {
+            throw std::runtime_error("ThreadPool is stopping, cannot enqueue task");
+        }
 
-        size_t index = chunkTaskCounter.fetch_add(1, std::memory_order_relaxed) % chunkQueues.size();
-        if (!chunkQueues[index]->push(Task{ [task]() { (*task)(); } }))
-            throw std::runtime_error("Chunk queue is full!");
+        std::future<ReturnType> future = taskPtr->get_future();
 
-        return result;
+        chunkQueue.push(Task{ [taskPtr]() { (*taskPtr)(); } });
+
+        return future;
     }
 
+    // Перегрузка с workerIndex для совместимости
+    // Позже будет убрана
     template<typename F, typename... Args>
-    auto enqueueChunkTask(size_t workerIndex, F&& f, Args&&... args)
-        -> std::future<typename std::invoke_result_t<F, Args...>>
+    auto enqueueChunkTask(size_t /*workerIndex*/, F&& f, Args&&... args)
+        -> std::future<std::invoke_result_t<F, Args...>>
     {
-        using ReturnType = typename std::invoke_result_t<F, Args...>;
-        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
-            std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-        );
-        std::future<ReturnType> result = task->get_future();
-
-        if (stopping) throw std::runtime_error("enqueueChunkTask on stopped ThreadPool");
-
-        if (!chunkQueues[workerIndex]->push(Task{ [task]() { (*task)(); } }))
-            throw std::runtime_error("Chunk queue is full!");
-
-        return result;
+        return enqueueChunkTask(std::forward<F>(f), std::forward<Args>(args)...);
     }
 
 private:
-    std::atomic<size_t> chunkTaskCounter = 0;
+    ThreadPool()
+        : stopping(false)
+    {
+        const unsigned int cpu = std::thread::hardware_concurrency();
+        const size_t workersCount = (cpu > 1) ? cpu / 2 : 1;
 
-    ThreadPool() : stopping(false) {
-        unsigned int cpu = std::thread::hardware_concurrency();
-        size_t chunkWorkersCount = std::min<size_t>(4, cpu > 1 ? cpu - 1 : 1);
-        maxGeneralWorkers = std::max<size_t>(1, cpu > chunkWorkersCount ? cpu - chunkWorkersCount : 1);
+        Logger::getInstance().Log("workers count " + std::to_string(workersCount));
 
-        generalWorkersCount = 1;
-        workers.emplace_back([this] { generalWorker(); });
-
-        for (size_t i = 0; i < chunkWorkersCount; ++i) {
-            chunkQueues.emplace_back(std::make_unique<LockFreeQueue>(1024));
-            workers.emplace_back([this, i] { chunkWorker(i); });
+        for (size_t i = 0; i < workersCount; ++i) {
+            workers.emplace_back([this] { workerLoop(); });
         }
     }
-
-    ThreadPool(const ThreadPool&) = delete;
-    ThreadPool& operator=(const ThreadPool&) = delete;
-    ThreadPool(ThreadPool&&) = delete;
-    ThreadPool& operator=(ThreadPool&&) = delete;
 
     ~ThreadPool() {
-        shutdown();
-    }
+        stopping.store(true, std::memory_order_release);
 
-    void shutdown() {
-        {
-            std::unique_lock lock(generalMutex);
-            stopping = true;
-        }
-        generalCondition.notify_all();
-
-        for (auto& thread : workers) {
-            if (thread.joinable())
-                thread.join();
-        }
-    }
-
-    void generalWorker() {
-        while (true) {
-            std::function<void()> task;
-            {
-                std::unique_lock lock(generalMutex);
-
-                if (!generalCondition.wait_for(lock, std::chrono::seconds(5), [this] {
-                        return stopping || !generalTasks.empty();
-                    })) {
-                    if (generalWorkersCount > 1) {
-                        generalWorkersCount--;
-                        return;
-                    }
-                    continue;
-                }
-
-                if (stopping && generalTasks.empty()) return;
-
-                task = std::move(generalTasks.front());
-                generalTasks.pop();
+        for (auto& th : workers) {
+            if (th.joinable()) {
+                th.join();
             }
-            task();
         }
     }
 
-    void chunkWorker(size_t workerIndex) {
-        auto& queue = *chunkQueues[workerIndex];
-        int spinCount = 0;
-
-        while (!stopping) {
-            auto taskOpt = queue.pop();
-            if (taskOpt.has_value()) {
-                taskOpt->task();
-                spinCount = 0;
+    void workerLoop() {
+        int idleSpins = 0;
+        while (!stopping.load(std::memory_order_acquire)) {
+            auto optTask = chunkQueue.pop();
+            if (optTask.has_value()) {
+                optTask->task();
+                idleSpins = 0;
             } else {
-                if (++spinCount < 100) {
-                    std::this_thread::yield();
-                } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    spinCount = 0;
-                }
+                std::this_thread::sleep_for(std::chrono::microseconds(1));
             }
         }
     }
 
     std::vector<std::thread> workers;
-
-    std::queue<std::function<void()>> generalTasks;
-    std::mutex generalMutex;
-    std::condition_variable generalCondition;
-
-    std::vector<std::unique_ptr<LockFreeQueue>> chunkQueues;
-
-    std::atomic<size_t> generalWorkersCount = 0;
-    size_t maxGeneralWorkers = 1;
-
+    SPMCQueue chunkQueue{1000};
     std::atomic<bool> stopping;
 };

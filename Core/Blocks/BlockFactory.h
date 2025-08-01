@@ -17,7 +17,7 @@ struct BlockIDHash {
 
 class BlockFactory {
 public:
-    using BlockConstructor = std::function<std::unique_ptr<Block>()>;
+    using BlockConstructor = std::function<std::shared_ptr<Block>()>;
 
     static BlockFactory& getInstance() {
         static BlockFactory instance;
@@ -26,10 +26,10 @@ public:
 
     void registerBlock(Blocks blockType, BlockConstructor constructor) {
         std::lock_guard<std::mutex> lock(_mutex);
-        _registry[blockType] = constructor;
+        _registry[blockType] = std::move(constructor);
     }
 
-    std::unique_ptr<Block> create(Blocks blockType) {
+    std::shared_ptr<Block> create(Blocks blockType) {
         std::lock_guard<std::mutex> lock(_mutex);
         auto it = _registry.find(blockType);
         if (it != _registry.end()) {
@@ -44,6 +44,11 @@ public:
     bool isRegistered(Blocks blockType) {
         std::lock_guard<std::mutex> lock(_mutex);
         return _registry.count(blockType) > 0;
+    }
+
+    std::shared_ptr<Block> getSharedAirBlock() {
+        static std::shared_ptr<Block> airBlock = create(Blocks::Air);
+        return airBlock;
     }
 
 private:

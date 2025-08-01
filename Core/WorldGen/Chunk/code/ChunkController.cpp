@@ -144,3 +144,22 @@ void ChunkController::update(const glm::ivec3& playerPos, int viewDistance) {
 
     _chunkMemoryContainer->loadVectorOfChunks(listOfChunkPositionsAroundCenter, worldName);
 }
+
+void ChunkController::initWorld(glm::vec3 playerPos, int viewDistance) {
+    auto center = toChunkPos(playerPos);
+
+    std::vector<ChunkPos> initialChunks;
+
+    for (int x = center.position.x - viewDistance; x <= center.position.x + viewDistance; ++x) {
+        for (int y = center.position.y - viewDistance; y <= center.position.y + viewDistance; ++y) {
+            for (int z = center.position.z - viewDistance; z <= center.position.z + viewDistance; ++z) {
+                initialChunks.push_back(ChunkPos{ glm::ivec3(x, y, z) });
+            }
+        }
+    }
+
+    _chunkMemoryContainer->loadVectorOfChunks(initialChunks, worldName);
+
+    _lastCenter = center;
+    _chunkMemoryContainer->loadInitialChunksBlocking(initialChunks, worldName);
+}

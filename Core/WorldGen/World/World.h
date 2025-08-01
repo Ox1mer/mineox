@@ -16,7 +16,7 @@ private:
     ChunkController _chunkController;
     ShadowController _shadowController;
     TimeOfDayController _timeOfDayController;
-    int viewDistance = 5;
+    int viewDistance = 10;
 
 public:
     World(int seed, std::string worldName)
@@ -113,5 +113,9 @@ public:
             }
         }
         return std::nullopt;
+    }
+
+    void initWorld(const glm::vec3& playerPos) {
+        _chunkController.initWorld(playerPos, viewDistance);
     }
 };
