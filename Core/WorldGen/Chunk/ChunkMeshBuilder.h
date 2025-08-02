@@ -13,9 +13,9 @@
 #include "PathProvider.h"
 #include "ChunkBlocksOpaqueData.h"
 #include "BlockPos.h"
-#include "TextureController.h"
 
 class Chunk;
+struct AtlasRegion;
 
 class ChunkMeshBuilder {
 public:
@@ -40,7 +40,7 @@ private:
                                const Face& face,
                                int w,
                                int h,
-                               int textureID);
+                               const AtlasRegion region);
     GLuint loadTexture(const fs::path& path);
     Chunk& chunk;
     std::unordered_map<std::string, int> textureIDs;

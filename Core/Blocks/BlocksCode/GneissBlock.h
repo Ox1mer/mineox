@@ -42,4 +42,16 @@ public:
     bool isSolid() const override {
         return true;
     }
+
+    std::array<std::string, 6> getBlockSidesTextureNames() override {
+        return {
+            "gneiss.png",
+            "gneiss.png",
+            "gneiss.png",
+            "gneiss.png",
+            "gneiss.png",
+            "gneiss.png"
+        };
+    }
+
 };

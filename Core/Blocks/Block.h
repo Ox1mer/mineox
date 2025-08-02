@@ -22,5 +22,7 @@ public:
     virtual bool isTransparent() const { return false; }
     virtual bool isSolid() const { return true; }
 
+    virtual std::array<std::string, 6> getBlockSidesTextureNames() = 0;
+
     virtual ~Block() = default;
 };

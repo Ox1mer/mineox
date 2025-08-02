@@ -4,6 +4,7 @@
 #include "PathProvider.h"
 #include "ScopedTimer.h"
 #include "ServiceLocator.h"
+#include "TextureManager.h"
 
 ChunkMeshBuilder::ChunkMeshBuilder(Chunk& chunk) : chunk(chunk) {}
 
@@ -39,8 +40,6 @@ void ChunkMeshBuilder::buildMesh() {
                         auto& block = *chunk.getBlocks()[index];
                         std::string blockName = block.getStringRepresentation();
 
-                        int textureID = TextureController::getInstance().getTextureID(blockName);
-
                         glm::ivec3 u, v;
                         if (face.normal.x != 0) {
                             u = {0, 1, 0};
@@ -53,7 +52,19 @@ void ChunkMeshBuilder::buildMesh() {
                             v = {0, 1, 0};
                         }
 
-                        addQuad(worldPos, u, v, face, 1, 1, textureID);
+                        std::string sideName = block.getBlockSidesTextureNames()[faceIndex];
+                        const auto& atlasRegions = TextureManager::getInstance().getAtlasRegions();
+                        auto it = atlasRegions.find(sideName);
+                        if (it != atlasRegions.end()) {
+                            const AtlasRegion& region = it->second;
+                            addQuad(worldPos, u, v, face, 1, 1, region);
+                        } else {
+                            // If a texture is not found, you can substitute default UV coordinates or log an error message
+                            Logger::getInstance().Log("Texture region not found for: " + sideName, LogLevel::Warning);
+                            // For example, to avoid a crash, you can use a default region like {0, 0, 1, 1}
+                            AtlasRegion defaultRegion{0.0f, 0.0f, 1.0f, 1.0f};
+                            addQuad(worldPos, u, v, face, 1, 1, defaultRegion);
+                        }
                     }
                 }
             }
@@ -67,7 +78,8 @@ void ChunkMeshBuilder::addQuad(glm::ivec3 pos,
                                const Face& face,
                                int w,
                                int h,
-                               int textureID) {
+                               const AtlasRegion region) {
+
     unsigned int startIndex = vertices.size();
     glm::vec3 normal = face.normal;
 
@@ -76,19 +88,21 @@ void ChunkMeshBuilder::addQuad(glm::ivec3 pos,
     glm::vec3 v2 = v1 + glm::vec3(v) * float(h);
     glm::vec3 v3 = v0 + glm::vec3(v) * float(h);
 
-    vertices.push_back(Vertex{v0, normal, {0, 0}, textureID});
-    vertices.push_back(Vertex{v1, normal, {1, 0}, textureID});
-    vertices.push_back(Vertex{v2, normal, {1, 1}, textureID});
-    vertices.push_back(Vertex{v3, normal, {0, 1}, textureID});
+    glm::vec2 uv0 = {region.u0, region.v0};
+    glm::vec2 uv1 = {region.u1, region.v0};
+    glm::vec2 uv2 = {region.u1, region.v1};
+    glm::vec2 uv3 = {region.u0, region.v1};
 
-    // Проверяем нормаль к вектору ребра, чтобы определить ориентацию
+    vertices.push_back(Vertex{v0, normal, uv0});
+    vertices.push_back(Vertex{v1, normal, uv1});
+    vertices.push_back(Vertex{v2, normal, uv2});
+    vertices.push_back(Vertex{v3, normal, uv3});
+
     glm::vec3 edge1 = v1 - v0;
     glm::vec3 edge2 = v3 - v0;
     glm::vec3 faceNormal = glm::normalize(glm::cross(edge1, edge2));
 
-    // Если направление нормали не совпадает с face.normal - меняем порядок индексов
     if (glm::dot(faceNormal, normal) < 0) {
-        // Меняем порядок для треугольников (0,3,2) и (2,1,0)
         indices.push_back(startIndex + 0);
         indices.push_back(startIndex + 3);
         indices.push_back(startIndex + 2);
@@ -97,7 +111,6 @@ void ChunkMeshBuilder::addQuad(glm::ivec3 pos,
         indices.push_back(startIndex + 1);
         indices.push_back(startIndex + 0);
     } else {
-        // Обычный порядок (0,1,2) и (2,3,0)
         indices.push_back(startIndex + 0);
         indices.push_back(startIndex + 1);
         indices.push_back(startIndex + 2);
@@ -175,29 +188,4 @@ size_t ChunkMeshBuilder::getVertexCount() const {
 
 size_t ChunkMeshBuilder::getIndexCount() const {
     return indices.size();
-}
-
-GLuint ChunkMeshBuilder::loadTexture(const fs::path& path) {
-    int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = stbi_load(path.string().c_str(), &width, &height, &nrChannels, 0);
-
-    if (!data) {
-        std::cerr << "Failed to load texture: " << path << std::endl;
-        return 0;
-    }
-
-    GLuint textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);	
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    GLenum format = (nrChannels == 1 ? GL_RED : (nrChannels == 3 ? GL_RGB : GL_RGBA));
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    stbi_image_free(data);
-    return textureID;
 }

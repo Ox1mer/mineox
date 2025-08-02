@@ -6,9 +6,10 @@
 #include "Chunk.h"
 #include "Logger.h"
 #include "GlResourceDeleter.h"
-#include "TextureController.h"
 #include "Shader.h"
 #include "ScopedTimer.h"
+
+#include "TextureManager.h"
 
 class Chunk;
 
@@ -66,9 +67,6 @@ struct ChunkMesh
         glEnableVertexAttribArray(texCoordAttrib);
         glVertexAttribPointer(texCoordAttrib, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoord));
 
-        glEnableVertexAttribArray(textureIDAttrib);
-        glVertexAttribIPointer(textureIDAttrib, 1, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, textureID));
-
         glBindVertexArray(0);
 
         vertexCount = static_cast<GLsizei>(meshBuilder.vertices.size());
@@ -104,26 +102,23 @@ struct ChunkMesh
 
     void render(Shader shader, const glm::vec3& sunDirection, const glm::vec3& sunColor) {
         if (needUpdate) update();
-            shader.use();
+        shader.use();
 
-            if (!texturesBound) {
-                auto& texCtrl = TextureController::getInstance();
-                for (int i = 0; i < texCtrl.getTextureCount(); ++i) {
-                    glActiveTexture(GL_TEXTURE0 + i);
-                    glBindTexture(GL_TEXTURE_2D, texCtrl.getTextureIDByIndex(i));
-                }
-                int units[32];
-                for (int i = 0; i < texCtrl.getTextureCount(); ++i) units[i] = i;
-                glUniform1iv(glGetUniformLocation(shader.ID, "textures"), texCtrl.getTextureCount(), units);
-                texturesBound = true;
-            }
+        if (!texturesBound) {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, TextureManager::getInstance().getAtlasID());
 
-            glBindVertexArray(VAO);
-            if (indexCount > 0)
-                glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
-            else
-                glDrawArrays(GL_TRIANGLES, 0, vertexCount);
-            glBindVertexArray(0);
+            glUniform1i(glGetUniformLocation(shader.ID, "atlasTexture"), 0);
+
+            texturesBound = true;
         }
+
+        glBindVertexArray(VAO);
+        if (indexCount > 0)
+            glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+        else
+            glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+        glBindVertexArray(0);
+    }
 
 };

@@ -11,7 +11,6 @@
 #include <optional>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
-#include <stb_image_write.h>
 
 #include <chrono>
 #include <iomanip>

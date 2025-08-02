@@ -42,4 +42,15 @@ public:
     bool isSolid() const override {
         return true;
     }
+
+    std::array<std::string, 6> getBlockSidesTextureNames() override {
+        return {
+            "migmatite.png",
+            "migmatite.png",
+            "migmatite.png",
+            "migmatite.png",
+            "migmatite.png",
+            "migmatite.png"
+        };
+    }
 };

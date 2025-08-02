@@ -6,8 +6,8 @@ in vec2 TexCoords;
 flat in int TextureIndex;
 in vec4 FragPosLightSpace;
 
-uniform sampler2D textures[32];
 uniform sampler2D shadowMap;
+uniform sampler2D atlasTexture;
 
 uniform vec3 lightDir;
 uniform vec3 lightColor;
@@ -105,8 +105,7 @@ float ShadowCalculation(vec4 fragPosLightSpace, vec3 normal)
 
 void main()
 {
-    int index = max(TextureIndex - 1, 0);
-    vec4 texColor = texture(textures[index], TexCoords);
+    vec4 texColor = texture(atlasTexture, TexCoords);
 
     vec3 norm = normalize(Normal);
     vec3 lightDirNorm = normalize(-lightDir);

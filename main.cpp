@@ -10,6 +10,7 @@
 #include "WindowController.h"
 #include "Camera.h"
 #include "Shader.h"
+
 #include "ScreenshotCreator.h"
 
 #include "StateController.h"
@@ -19,15 +20,11 @@
 #include "BlocksIncluder.h"
 #include "RayCastHit.h"
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
 #include "FontsLoader.h"
-#include "TextureController.h"
+#include "TextureManager.h"
 
 #include "WireFrameCube.h"
 #include "SkySettings.h"
@@ -47,6 +44,11 @@ std::unique_ptr<IInputController> inputController =
 #endif
 
 #include "CommandsIncluder.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 
 WindowContext ctx;
 
@@ -68,6 +70,7 @@ const int shadowUpdateInterval = 10;
 Camera camera;
 
 void init() {
+    setlocale(LC_ALL, "Russian");
     Logger::getInstance().Log("Application started", LogLevel::Info, LogOutput::Both, LogWriteMode::Overwrite);
     ThreadPool::getInstance(); // Initialize ThreadPool
     EventBus::getInstance(); // Initialize EventBus
@@ -87,6 +90,7 @@ int main() {
     f3InfoScreen f3InfoScreen;
     ScreenshotCreator screenshotCreator;
 
+    auto& textureManager = TextureManager::getInstance();
     auto& fileHandler = FileHandler::getInstance();
     auto& pathProvider = PathProvider::getInstance();
     auto& openGLSettingsController = GLSettingsController::getInstance();
@@ -124,17 +128,6 @@ int main() {
     Shader fontsShader          = Shader::fromPaths(pathProvider.getFontShadersPath());
     Shader depthShader          = Shader::fromPaths(pathProvider.getDepthShaderPath());
     Shader chatShader           = Shader::fromPaths(pathProvider.getChatShadersPath());
-
-    TextureController::getInstance().initialize(PathProvider::getInstance().getBlocksTextureFolderPath(), {
-        Blocks::Dirt, Blocks::Gneiss,
-        Blocks::Gravel, Blocks::Migmatite, Blocks::Sand,
-        Blocks::SporeMoss, Blocks::Stone
-    });
-    TextureController::getInstance().initializeTextures(shader.ID, {
-        Blocks::Dirt, Blocks::Gneiss,
-        Blocks::Gravel, Blocks::Migmatite, Blocks::Sand,
-        Blocks::SporeMoss, Blocks::Stone
-    });
     
     float symbolSize = 32.0f; // Size of the font symbols
 
@@ -168,6 +161,8 @@ int main() {
     );
 
     glm::mat4 model = glm::mat4(1.0f);
+
+    textureManager.bindTextures();
 
     while (!glfwWindowShouldClose(window)) {
         if(window) {
@@ -261,12 +256,18 @@ void setupSceneShader(Shader& shader,
     shader.setMat4("model", model);
 
     shader.setMat4("lightSpaceMatrix", world.getShadowController().getSunLightSpaceMatrix());
-    shader.setInt("shadowMap", 31);
+
+    shader.setInt("atlasTexture", 0);
+    shader.setInt("shadowMap", 1);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, TextureManager::getInstance().getAtlasID());
+
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, world.getShadowController().getSunShadowMap());
+
     shader.setFloat("shadowMapSize", 8192.0f);
     shader.setVec3("lightColor", skyLightInfo.lightColor);
     shader.setVec3("lightDir", skyLightInfo.lightDirection);
     shader.setFloat("lightIntensity", skyLightInfo.lightIntensity);
-
-    glActiveTexture(GL_TEXTURE31);
-    glBindTexture(GL_TEXTURE_2D, world.getShadowController().getSunShadowMap());
 }

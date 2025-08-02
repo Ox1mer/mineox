@@ -16,7 +16,7 @@ private:
     ChunkController _chunkController;
     ShadowController _shadowController;
     TimeOfDayController _timeOfDayController;
-    int viewDistance = 10;
+    int viewDistance = 5;
 
 public:
     World(int seed, std::string worldName)

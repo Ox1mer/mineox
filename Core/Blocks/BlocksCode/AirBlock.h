@@ -42,4 +42,8 @@ public:
     bool isSolid() const override {
         return false;
     }
+
+    std::array<std::string, 6> getBlockSidesTextureNames() override {
+        return {"","","","","",""};
+    }
 };
