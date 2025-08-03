@@ -68,6 +68,10 @@ public:
         return screenshotsFolderPath;
     }
 
+    fs::path getBlocksJsonFolderPath() const {
+        return dataPath / "models";
+    }
+
     // -- Shaders paths
     std::array<fs::path, 2> getWireFrameCubeShadersPath() const {
         return {
@@ -103,6 +107,8 @@ public:
             dataPath / "shaders" / "chat.fs"
         };
     }
+
+
 
 private:
 
