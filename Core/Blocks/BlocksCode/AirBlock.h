@@ -19,10 +19,6 @@ public:
         // Air block is not rendered
     }
 
-    std::string getStringRepresentation() const override {
-        return "air";
-    }
-
     Blocks getBlockId() const override {
         return Blocks::Air;
     }
@@ -33,14 +29,6 @@ public:
 
     void setBlockProperties(const std::string& properties) override {
         
-    }
-
-    bool isTransparent() const override {
-        return true;
-    }
-
-    bool isSolid() const override {
-        return false;
     }
 
     std::array<std::string, 6> getBlockSidesTextureNames() override {

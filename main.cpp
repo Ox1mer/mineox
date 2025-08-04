@@ -50,6 +50,8 @@ std::unique_ptr<IInputController> inputController =
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
 
+#include "BlockCache.h"
+
 WindowContext ctx;
 
 void setupSceneShader(Shader& shader, 
@@ -78,7 +80,21 @@ void init() {
 }
 
 int main() {
+
+    const char* appdata = std::getenv("APPDATA");
+    std::filesystem::path r = fs::path(appdata) / ".mineox";
+    std::filesystem::path path = r / "data";
+
+    std::error_code ec;
+    std::filesystem::remove_all(path, ec);
+
     init();
+
+    if (ec) {
+        std::cerr << "Ошибка удаления: " << ec.message() << std::endl;
+    } else {
+        std::cout << "Папка и всё её содержимое удалены." << std::endl;
+    }
 
     WindowController windowController;
     windowController.init();
@@ -94,6 +110,7 @@ int main() {
     auto& fileHandler = FileHandler::getInstance();
     auto& pathProvider = PathProvider::getInstance();
     auto& openGLSettingsController = GLSettingsController::getInstance();
+    auto& blockCacheController = BlockCache::getInstance();
 
     if (!window) {
         Logger::getInstance().Log("Failed to create GLFW window", LogLevel::Critical, LogOutput::Both);
@@ -103,6 +120,9 @@ int main() {
     openGLSettingsController.initializeOpenGLSettings(); // Initialize OpenGL settings
 
     StateController stateController;
+
+    blockCacheController.loadAll();
+
     stateController.changeState(std::make_unique<MainMenuState>());
 
     camera = Camera();

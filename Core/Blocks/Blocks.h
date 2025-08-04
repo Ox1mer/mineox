@@ -11,6 +11,9 @@ enum class Blocks {
     Sand,
     SporeMoss,
     Stone,
+
+
+    Count
 };
 
 inline std::string toString(Blocks block) {

@@ -192,6 +192,34 @@ private:
     }
     friend class PathProvider;
 
+    void ensureModelsPresent(const fs::path& modelsPath) {
+        char buffer[MAX_PATH];
+        GetModuleFileNameA(NULL, buffer, MAX_PATH);
+        fs::path exePath(buffer);
+        fs::path exeDir = exePath.parent_path();
+
+        fs::path sourceModels = exeDir / "data" / "models";
+
+        syncDirectories(sourceModels, modelsPath);
+
+        std::cout << "Models synced to: " << modelsPath << std::endl;
+    }
+    friend class PathProvider;
+
+    void ensureJsonConfigPresent(const fs::path& jsonConfigPath) {
+        char buffer[MAX_PATH];
+        GetModuleFileNameA(NULL, buffer, MAX_PATH);
+        fs::path exePath(buffer);
+        fs::path exeDir = exePath.parent_path();
+
+        fs::path sourceJsonConfigs = exeDir / "data" / "jsonConfigs";
+
+        syncDirectories(sourceJsonConfigs, jsonConfigPath);
+
+        std::cout << "Models synced to: " << jsonConfigPath << std::endl;
+    }
+    friend class PathProvider;
+
     FileHandler(const FileHandler&) = delete;
     FileHandler& operator=(const FileHandler&) = delete;
     FileHandler(FileHandler&&) = delete;

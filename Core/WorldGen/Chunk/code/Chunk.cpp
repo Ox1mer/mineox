@@ -1,6 +1,8 @@
 #include "Chunk.h"
 #include "ServiceLocator.h"
 
+#include "BlockCache.h"
+
 #include <GL/glext.h>
 
 Chunk::Chunk(const ChunkPos& pos)
@@ -80,7 +82,7 @@ void Chunk::updateChunkBlocksOpaqueData() {
             for (int x = 0; x < CHUNK_SIZE; ++x) {
                 int index = x + CHUNK_SIZE * (y + CHUNK_SIZE * z);
                 Block& block = *blocks[index];
-                blocksOpaqueData.setOpaque(x, y, z, !block.isTransparent());
+                blocksOpaqueData.setOpaque(x, y, z, BlockCache::getInstance().getBlockInfo(block.getBlockId()).isOpaque);
             }
         }
     }

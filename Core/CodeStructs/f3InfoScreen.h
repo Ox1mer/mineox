@@ -8,6 +8,8 @@
 #include "World.h"
 #include "FontsLoader.h"
 
+#include "BlockCache.h"
+
 struct f3InfoScreen
 {
     int fps = 0;
@@ -16,6 +18,8 @@ struct f3InfoScreen
     glm::ivec3 chunkPos{};
     glm::ivec3 blockPos{};
     std::string facedBlockInfo;
+
+
 
     void update(float deltaTime, const Camera& camera, World& world, const std::optional<RaycastHit>& raycastHit) {
         fps = static_cast<int>(1.0f / deltaTime);
@@ -33,7 +37,7 @@ struct f3InfoScreen
 
         if (block) {
             facedBlockInfo = raycastHit.has_value()
-                ? "Block: " + block.value().get().getStringRepresentation() +
+                ? "Block: " + _blockCache.getBlockInfo(block.value().get().getBlockId()).name +
                   ", Face Normal: " + toString(raycastHit->faceNormal)
                 : "No block hit";
         } else {
@@ -85,4 +89,6 @@ struct f3InfoScreen
         drawLine("View distance: " + toString(viewDistance), 4);
         drawLine(facedBlockInfo, 5);
     }
+private:
+    BlockCache& _blockCache = BlockCache::getInstance();
 };

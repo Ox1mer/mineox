@@ -5,47 +5,33 @@
 #include "Blocks.h"
 #include "PathProvider.h"
 
+#include "BlockModelStructs.h"
+#include "BlockInfoStruct.h"
+
+#include "Logger.h"
+
 using json = nlohmann::json;
-
-struct Rotation {
-    float angle;
-    std::string axis;
-    std::vector<float> origin;
-};
-
-struct Face {
-    std::vector<float> uv;
-    std::string texture;
-};
-
-struct Element {
-    std::vector<float> from;
-    std::vector<float> to;
-    Rotation rotation;
-    std::map<std::string, Face> faces;
-};
-
-struct Model {
-    std::string credit;
-    std::map<std::string, std::string> textures;
-    std::vector<Element> elements;
-};
 
 class JsonBlockInfoReader {
 public:
-    Model readBlockInfo(Blocks block) {
+    std::optional<BlockModel> readBlockModelInfo(Blocks block) {
         auto blockString = toString(block);
-        std::ifstream f(PathProvider::getInstance().getBlocksJsonFolderPath().string() + blockString + ".json");
+        if (blockString == "air") {
+            return std::nullopt;
+        }
+        std::ifstream f(PathProvider::getInstance().getBlocksJsonFolderPath().string() + "/" + blockString + ".json");
+
+        Logger::getInstance().Log("Loading file: " + PathProvider::getInstance().getBlocksJsonFolderPath().string() + "/" + blockString + ".json");
 
         json j;
         f >> j;
 
-        Model model;
+        BlockModel model;
         model.credit = j["credit"];
         model.textures = j["textures"].get<std::map<std::string, std::string>>();
 
         for (const auto& elem : j["elements"]) {
-            Element e;
+            BlockModelElement e;
             e.from = elem["from"].get<std::vector<float>>();
             e.to = elem["to"].get<std::vector<float>>();
 
@@ -56,7 +42,7 @@ public:
 
             auto faces = elem["faces"];
             for (auto it = faces.begin(); it != faces.end(); ++it) {
-                Face f;
+                BlockModelFace f;
                 f.uv = it.value()["uv"].get<std::vector<float>>();
                 f.texture = it.value()["texture"];
                 e.faces[it.key()] = f;
@@ -65,20 +51,50 @@ public:
             model.elements.push_back(e);
         }
 
-        std::cout << "Credit: " << model.credit << "\n";
-
         for (const auto& [key, tex] : model.textures) {
-            std::cout << "Texture " << key << ": " << tex << "\n";
+            Logger::getInstance().Log("Texture " + key + ": " + tex);
         }
 
         for (const auto& e : model.elements) {
-            std::cout << "Element from: ";
-            for (auto v : e.from) std::cout << v << " ";
-            std::cout << "\n";
+            std::string fromStr = "Element from: ";
+            for (auto v : e.from) {
+                fromStr += std::to_string(v) + " ";
+            }
+            Logger::getInstance().Log(fromStr);
         }
 
         return model;
     }
 
+    std::optional<BlockInfo> readBlockInfo(Blocks block) {
+        auto blockString = toString(block);
+        if (blockString == "air") {
+            return std::nullopt;
+        }
+        auto filePath = PathProvider::getInstance().getBlocksConfigsFolder().string() + "/" + blockString + ".json";
+
+        std::ifstream f(filePath);
+        if (!f.is_open()) {
+            std::cerr << "Cannot open file: " << filePath << std::endl;
+            return std::nullopt;
+        }
+
+        json j;
+        try {
+            f >> j;
+        } catch (const json::parse_error& e) {
+            std::cerr << "JSON parse error in " << filePath << ": " << e.what() << std::endl;
+            return std::nullopt;
+        }
+
+        BlockInfo info;
+
+        if (j.contains("name")) info.name = j["name"];
+        if (j.contains("isTransparent")) info.isTransparent = j["isTransparent"];
+        if (j.contains("isSolid")) info.isSolid = j["isSolid"];
+        if (j.contains("isOpaque")) info.isOpaque = j["isOpaque"];
+
+        return info;
+    }
 
 };

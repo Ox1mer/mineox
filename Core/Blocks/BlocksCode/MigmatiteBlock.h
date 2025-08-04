@@ -19,10 +19,6 @@ public:
         
     }
 
-    std::string getStringRepresentation() const override {
-        return "migmatite";
-    }
-
     Blocks getBlockId() const override {
         return Blocks::Migmatite;
     }
@@ -33,14 +29,6 @@ public:
 
     void setBlockProperties(const std::string& properties) override {
         
-    }
-
-    bool isTransparent() const override {
-        return false;
-    }
-
-    bool isSolid() const override {
-        return true;
     }
 
     std::array<std::string, 6> getBlockSidesTextureNames() override {

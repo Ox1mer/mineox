@@ -19,10 +19,6 @@ public:
         // Render logic for dirt block
     }
 
-    std::string getStringRepresentation() const override {
-        return "sand";
-    }
-
     Blocks getBlockId() const override {
         return Blocks::Sand;
     }
@@ -33,14 +29,6 @@ public:
 
     void setBlockProperties(const std::string& properties) override {
         // Sand block has no properties to set
-    }
-
-    bool isTransparent() const override {
-        return false;
-    }
-
-    bool isSolid() const override {
-        return true;
     }
 
     std::array<std::string, 6> getBlockSidesTextureNames() override {

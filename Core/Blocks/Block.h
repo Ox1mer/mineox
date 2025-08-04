@@ -13,14 +13,10 @@ public:
     virtual void onInteract() {}
     virtual void onNeighborChanged() {}
 
-    virtual std::string getStringRepresentation() const = 0;
     virtual Blocks getBlockId() const = 0;
 
     virtual std::string getBlockProperties() const = 0;
     virtual void setBlockProperties(const std::string& properties) = 0;
-
-    virtual bool isTransparent() const { return false; }
-    virtual bool isSolid() const { return true; }
 
     virtual std::array<std::string, 6> getBlockSidesTextureNames() = 0;
 

@@ -9,6 +9,8 @@
 #include "ShadowController.h"
 #include "TimeOfDayController.h"
 
+#include "BlockCache.h"
+
 class World {
 private:
     int seed;
@@ -16,11 +18,14 @@ private:
     ChunkController _chunkController;
     ShadowController _shadowController;
     TimeOfDayController _timeOfDayController;
+    BlockCache& _blockCache = BlockCache::getInstance();
     int viewDistance = 5;
 
 public:
     World(int seed, std::string worldName)
-        : seed(seed), worldName(worldName), _chunkController(worldName) {}
+        : seed(seed), worldName(worldName), _chunkController(worldName) {
+
+        }
 
     ~World() {}
 
@@ -82,7 +87,7 @@ public:
         while (traveled <= maxDistance) {
             auto block = _chunkController.getBlock(BlockPos(blockPos));
             if (block.has_value()) {
-                if (block.value().get().isSolid()) {
+                if (_blockCache.getBlockInfo(block.value().get().getBlockId()).isSolid) {
                     return RaycastHit{ blockPos, faceNormal };
                 }
             }

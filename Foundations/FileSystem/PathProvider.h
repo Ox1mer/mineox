@@ -72,6 +72,14 @@ public:
         return dataPath / "models";
     }
 
+    fs::path getJsonConfigsFolder() const {
+        return dataPath / "jsonConfigs";
+    }
+
+    fs::path getBlocksConfigsFolder() const {
+        return getJsonConfigsFolder() / "blocks";
+    }
+
     // -- Shaders paths
     std::array<fs::path, 2> getWireFrameCubeShadersPath() const {
         return {
@@ -126,6 +134,8 @@ private:
         fh.ensureFontPresent(getFontsPath() / "arial.ttf");
         fh.ensureShaderPresent(getShadersPath());
         fh.ensureTexturesPresent(getTextureFolderPath());
+        fh.ensureModelsPresent(getBlocksJsonFolderPath());
+        fh.ensureJsonConfigPresent(getJsonConfigsFolder());
     }
 
     PathProvider() {
